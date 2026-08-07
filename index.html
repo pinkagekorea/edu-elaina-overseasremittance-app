@@ -1,0 +1,1709 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>해외송금 대시보드</title>
+
+<!-- Pretendard (확인함: CSS 200 / woff2 서브셋 200) — 이 문서의 유일한 서체 -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+
+<style>
+  /* ================================================================
+     핑크에이지 디자인 토큰
+     대비는 직접 계산해서 4.5:1 이상만 글자에 씀 (계산값은 주석 참고)
+     ================================================================ */
+  :root {
+    color-scheme: light;
+
+    --navy:      #1C3160;   /* 수치·제목·주 버튼 */
+    --blush:     #FAD9DC;   /* 바탕(면)·배지 전용 — 글자/1px 선 금지 */
+    --ivory:     #FDFCF8;   /* 지면 */
+    --pink:      #C44569;   /* 밑줄·게이지·포커스 링 전용 — 네이비 위 금지 */
+    --card:      #FFFFFF;
+
+    --ink:       #555555;   /* 본문  (ivory 7.26 · white 7.46 · blush 5.69) */
+    --ink-muted: #737373;   /* 보조  (ivory 4.62 · white 4.74) — blush 위 금지 */
+    --line:      #ececec;   /* 1px 구분선 */
+    --border:    #c9c9c9;   /* 테두리 전용 */
+
+    --up:        #1d7a5c;   /* 증가 */
+    --down:      #b23a48;   /* 감소 */
+
+    /* 반경 4단계 */
+    --r-badge:   6px;
+    --r-control: 10px;
+    --r-card:    14px;
+    --r-modal:   18px;
+
+    /* 그림자 1종 */
+    --shadow: 0 1px 3px rgba(28,49,96,.08), 0 4px 16px rgba(28,49,96,.05);
+
+    /* 차트 마크 전용 색각 검증 팔레트 (브랜드 규정 밖 — 아래 주석 참고) */
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+    --series-5: #e87ba4;
+    --series-6: #008300;
+    --series-7: #4a3aa7;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ivory);
+    color: var(--ink);
+    font-family: 'Pretendard Variable', Pretendard, system-ui, -apple-system,
+                 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* 포커스 링은 지우지 않는다 */
+  :focus-visible {
+    outline: 2px solid var(--pink);
+    outline-offset: 2px;
+    border-radius: var(--r-badge);
+  }
+
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 16px 64px; }
+
+  /* ---- 머리말 ---- */
+  .page-head { margin-bottom: 20px; }
+  h1 {
+    font-size: 22px; font-weight: 700; color: var(--navy);
+    margin: 0 0 4px; letter-spacing: -0.02em;
+  }
+  .sub {
+    font-size: 13px; color: var(--ink); margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* ---- 카드 / 섹션 ---- */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-card);
+    box-shadow: var(--shadow);
+    padding: 18px;
+  }
+  section { margin-top: 18px; }
+  h2 {
+    display: inline-block;
+    font-size: 15px; font-weight: 700; color: var(--navy);
+    margin: 0; padding-bottom: 5px;
+    border-bottom: 2px solid var(--pink);   /* 딥핑크 = 밑줄 */
+    letter-spacing: -0.02em;
+  }
+  .section-sub { font-size: 12px; color: var(--ink-muted); margin: 8px 0 14px; }
+
+  /* ---- 상태 (로딩 / 에러) ---- */
+  #status { margin-top: 18px; }
+  .loading-label {
+    display: block; font-size: 14px; color: var(--navy);
+    font-weight: 700; margin-bottom: 10px;
+  }
+  .loading-bar {
+    height: 6px; border-radius: var(--r-badge);
+    background: var(--blush); overflow: hidden;
+  }
+  .loading-bar i {
+    display: block; height: 100%; width: 38%;
+    border-radius: var(--r-badge); background: var(--navy);
+    animation: slide 1.1s ease-in-out infinite;
+  }
+  @keyframes slide {
+    0%   { transform: translateX(-110%); }
+    100% { transform: translateX(300%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .loading-bar i { animation-duration: 3s; }
+  }
+
+  .error { border-color: var(--down); }
+  .error h2 { color: var(--down); border-bottom-color: var(--down); }
+  .error pre {
+    margin: 12px 0 0; padding: 12px;
+    background: var(--ivory);
+    border: 1px solid var(--border); border-radius: var(--r-control);
+    font-size: 12px; line-height: 1.5; color: var(--ink);
+    white-space: pre-wrap; word-break: break-word; overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .error .hint { font-size: 12px; color: var(--ink); margin: 10px 0 0; }
+
+  /* ---- 요약 숫자 ---- */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .tile {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-card);
+    box-shadow: var(--shadow);
+    padding: 16px; min-width: 0;
+  }
+  .tile .label { font-size: 12px; color: var(--ink); margin-bottom: 6px; }
+  .tile .value {
+    font-size: 22px; font-weight: 800; color: var(--navy);
+    letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+  }
+  .tile .note {
+    font-size: 11px; color: var(--ink-muted); margin-top: 6px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
+  }
+  .tile.hero {
+    grid-column: 1 / -1;
+    background: var(--blush);            /* 블러시 = 면 (선에는 쓰지 않음) */
+    border-color: transparent;
+  }
+  .tile.hero .label,
+  .tile.hero .note { color: var(--ink); } /* blush 위 4.5:1 통과 색만 */
+  .tile.hero .value { font-size: 46px; line-height: 1.15; }
+  @media (min-width: 640px) { .tile.hero { grid-column: span 2; } }
+
+  .badge {
+    display: inline-block;
+    background: var(--blush); color: var(--navy);
+    border-radius: var(--r-badge);
+    font-size: 11px; font-weight: 800; line-height: 1.4;
+    padding: 1px 7px; font-variant-numeric: tabular-nums;
+  }
+  .tile.hero .badge { background: var(--card); }
+
+  /* ---- 표 ---- */
+  .table-scroll {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--border);
+    border-radius: var(--r-control);
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 1060px; font-size: 13px; }
+  th, td { padding: 10px 12px; text-align: right; white-space: nowrap; }
+
+  thead th {
+    position: sticky; top: 0; z-index: 1;
+    background: var(--blush); color: var(--navy);   /* 블러시 면 + 네이비 9.67:1 */
+    font-weight: 700; font-size: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  thead th.grp {
+    text-align: center; font-size: 11px;
+    border-bottom: 1px solid var(--border);
+  }
+  thead th.sep, tbody td.sep, tfoot td.sep { border-left: 1px solid var(--line); }
+
+  tbody td {
+    border-bottom: 1px solid var(--line);
+    color: var(--navy); font-weight: 800;           /* 숫자 = 네이비 800 */
+    font-variant-numeric: tabular-nums;
+  }
+  th:first-child, td:first-child { text-align: left; font-variant-numeric: normal; }
+  /* 머리글 둘째 줄(USD/CNY/금액)은 가운데 — first-child 규칙보다 뒤·높은 특정도 */
+  thead tr:last-child th { text-align: center; }
+  tbody td.zero { color: var(--ink); font-weight: 400; }
+
+  tr.month-row:hover > td { background: var(--ivory); }
+  tr.vendor-row > td {
+    background: var(--ivory); font-size: 12px; font-weight: 800;
+    padding-top: 7px; padding-bottom: 7px;
+  }
+  tr.vendor-row > td:first-child { color: var(--ink); font-weight: 400; padding-left: 32px; }
+
+  .vendor-cell { display: inline-flex; align-items: center; gap: 8px; }
+  .vendor-cell i {
+    width: 9px; height: 9px; border-radius: var(--r-badge); flex: none;
+  }
+
+  .row-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: none; border: 0; padding: 0; margin: 0; cursor: pointer;
+    font: inherit; color: var(--navy); font-weight: 700;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+  }
+  .row-toggle .caret {
+    display: inline-block; width: 9px; color: var(--ink-muted);
+    font-size: 10px; transition: transform .12s ease;
+  }
+  .row-toggle[aria-expanded="true"] .caret { transform: rotate(90deg); }
+  @media (prefers-reduced-motion: reduce) { .row-toggle .caret { transition: none; } }
+
+  tfoot td {
+    background: var(--blush); color: var(--navy); font-weight: 800;
+    border-top: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  tfoot td:first-child { font-variant-numeric: normal; font-weight: 700; }
+  tfoot td.zero { color: var(--ink); font-weight: 700; }
+
+  .scroll-hint { font-size: 11px; color: var(--ink-muted); margin: 10px 0 0; }
+  .scroll-hint[hidden] { display: none; }
+  .note-line { font-size: 11px; color: var(--ink-muted); margin: 8px 0 0; line-height: 1.6; }
+
+  /* ---- 차트 ---- */
+  .chart-host { position: relative; width: 100%; }
+  .chart-host svg { display: block; width: 100%; height: auto; }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 8px 18px;
+    margin-top: 14px; font-size: 12px; color: var(--ink);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .legend i { width: 10px; height: 10px; border-radius: var(--r-badge); flex: none; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; opacity: 0;
+    transition: opacity .1s ease;
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--border); border-radius: var(--r-control);
+    box-shadow: var(--shadow);
+    padding: 10px 12px; font-size: 12px; line-height: 1.5;
+    min-width: 160px; max-width: 260px; z-index: 5;
+  }
+  @media (prefers-reduced-motion: reduce) { .tooltip { transition: none; } }
+  .tooltip .tt-head {
+    font-weight: 700; color: var(--navy); margin-bottom: 6px;
+  }
+  .tooltip .tt-row { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .tooltip .tt-row i { width: 8px; height: 8px; border-radius: var(--r-badge); flex: none; }
+  .tooltip .tt-row b {
+    margin-left: auto; font-weight: 800; color: var(--navy);
+    font-variant-numeric: tabular-nums;
+  }
+  .tooltip .tt-total {
+    margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--line);
+    display: flex; gap: 14px; font-weight: 700; color: var(--navy);
+  }
+  .tooltip .tt-total b { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+  /* ================================================================
+     로그인 (day8 추가)
+     ================================================================ */
+
+  /* ---- 머리말 오른쪽: 접속 계정 ---- */
+  .page-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 10px 16px; flex-wrap: wrap;
+  }
+  .head-main { min-width: 0; }
+  .account {
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap; margin-left: auto; padding-top: 2px;
+  }
+  .account[hidden] { display: none; }
+  .account-email {
+    font-size: 12px; color: var(--ink);
+    max-width: 46vw; overflow-wrap: anywhere;
+  }
+
+  /* ---- 버튼 ---- */
+  .btn {
+    font: inherit; font-weight: 700; letter-spacing: -0.01em;
+    border-radius: var(--r-control); border: 1px solid transparent;
+    cursor: pointer;
+  }
+  .btn-primary {
+    width: 100%; padding: 11px 16px; font-size: 14px;
+    background: var(--navy); color: #fff; border-color: var(--navy);  /* 9.67:1 */
+  }
+  .btn-primary:hover { background: #16264A; }
+  .btn-primary[disabled] { opacity: .55; cursor: default; }
+  .btn-ghost {
+    padding: 7px 12px; font-size: 13px;
+    background: var(--card); color: var(--navy); border-color: var(--border);
+  }
+  .btn-ghost:hover { background: var(--blush); }
+
+  /* ---- 로그인 카드 ---- */
+  #auth[hidden] { display: none; }
+  .auth-wrap { display: flex; justify-content: center; margin-top: 18px; }
+  .auth-card { width: 100%; max-width: 400px; }
+  .auth-lead { font-size: 12px; color: var(--ink-muted); margin: 10px 0 18px; }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block; font-size: 12px; font-weight: 700;
+    color: var(--navy); margin-bottom: 6px;
+  }
+  .field input {
+    width: 100%; padding: 10px 12px; font: inherit; font-size: 14px;
+    color: var(--navy); background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--r-control);
+  }
+  .field input::placeholder { color: var(--ink-muted); }
+  .field input[disabled] { background: var(--ivory); }
+
+  /* 실패 사유 — 빨간 글씨로 그대로 (down #b23a48: white 5.85 · ivory 5.71) */
+  .auth-msg { margin: 0 0 14px; }
+  .auth-msg[hidden] { display: none; }
+  .auth-msg .msg-title {
+    font-size: 13px; font-weight: 800; color: var(--down); margin-bottom: 6px;
+  }
+  .auth-msg pre {
+    margin: 0; padding: 10px 12px;
+    background: var(--card);
+    border: 1px solid var(--down); border-radius: var(--r-control);
+    color: var(--down); font-size: 12px; line-height: 1.55;
+    white-space: pre-wrap; word-break: break-word; overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  /* ---- 구글 로그인 ---- */
+  .auth-or {
+    display: flex; align-items: center; gap: 10px;
+    margin: 16px 0; font-size: 11px; color: var(--ink-muted);
+  }
+  .auth-or::before, .auth-or::after {
+    content: ''; flex: 1 1 auto; height: 1px; background: var(--line);
+  }
+  .btn-google {
+    width: 100%; padding: 10px 16px; font-size: 14px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+    background: var(--card); color: var(--navy); border-color: var(--border);
+  }
+  .btn-google:hover { background: var(--ivory); }
+  .btn-google[disabled] { opacity: .55; cursor: default; }
+  .btn-google svg { width: 17px; height: 17px; flex: none; }   /* 제공자 로고 — 팔레트 예외 */
+  .google-note { font-size: 11px; color: var(--down); margin: 10px 0 0; line-height: 1.6; }
+  .google-note[hidden] { display: none; }
+
+  .auth-foot { font-size: 11px; color: var(--ink-muted); margin: 14px 0 0; line-height: 1.6; }
+  .auth-warn { font-size: 11px; color: var(--down); margin: 10px 0 0; line-height: 1.6; }
+  .auth-warn[hidden] { display: none; }
+
+  /* ---- 관리자 전용 영역 ---- */
+  #adminOnly[hidden] { display: none; }
+  .btn-danger {
+    padding: 10px 16px; font-size: 14px;
+    background: var(--down); color: #fff; border-color: var(--down);  /* 5.85:1 */
+  }
+  .btn-danger:hover { background: #97303c; }
+  .btn-danger[disabled] { opacity: .55; cursor: default; }
+
+  .admin-result { margin-top: 16px; }
+  .admin-result[hidden] { display: none; }
+  .admin-count {
+    font-size: 28px; font-weight: 800; letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums; color: var(--navy);
+  }
+  .admin-result.bad .admin-count { color: var(--down); }
+  .admin-detail {
+    margin: 8px 0 0; font-size: 12px; line-height: 1.6; color: var(--ink);
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .admin-result.bad .admin-detail { color: var(--down); }
+  .admin-note { font-size: 11px; color: var(--ink-muted); margin: 12px 0 0; line-height: 1.6; }
+
+  /* ---- 반응형: 860 / 480 ---- */
+  @media (max-width: 860px) {
+    .wrap { padding: 22px 14px 56px; }
+    .card { padding: 16px; }
+    .tile.hero .value { font-size: 38px; }
+    .stats { grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); }
+  }
+  @media (max-width: 480px) {
+    .wrap { padding: 18px 12px 48px; }
+    h1 { font-size: 19px; }
+    .card { padding: 14px; }
+    .stats { grid-template-columns: 1fr; gap: 10px; }
+    .tile.hero { grid-column: 1 / -1; }
+    .tile.hero .value { font-size: 32px; }
+    .tile .value { font-size: 20px; }
+    th, td { padding: 9px 10px; }
+    .account { width: 100%; margin-left: 0; }
+    .account-email { max-width: none; flex: 1 1 auto; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <div class="head-main">
+      <h1>해외송금 현황</h1>
+      <p class="sub" id="subtitle">준비하는 중…</p>
+    </div>
+
+    <!-- 로그인한 사람 · 로그아웃 (오른쪽 위) -->
+    <div class="account" id="account" hidden>
+      <span class="account-email" id="account-email"></span>
+      <button type="button" class="btn btn-ghost" id="logout-btn">로그아웃</button>
+    </div>
+  </header>
+
+  <!-- 로딩 / 에러 상태 -->
+  <div id="status">
+    <div class="card">
+      <span class="loading-label">불러오는 중…</span>
+      <div class="loading-bar" role="progressbar" aria-label="데이터 불러오는 중"><i></i></div>
+    </div>
+  </div>
+
+  <!-- 로그인 전 화면 — 데이터는 한 줄도 그리지 않는다 -->
+  <div id="auth" hidden>
+    <div class="auth-wrap">
+      <form class="card auth-card" id="auth-form" novalidate>
+        <h2>로그인</h2>
+        <p class="auth-lead">등록된 계정으로만 볼 수 있습니다.</p>
+
+        <!-- 실패 사유가 들어가는 자리 -->
+        <div class="auth-msg" id="auth-msg" role="alert" aria-live="assertive" hidden>
+          <div class="msg-title" id="auth-msg-title"></div>
+          <pre id="auth-msg-detail"></pre>
+        </div>
+
+        <div class="field">
+          <label for="auth-email">이메일</label>
+          <input type="email" id="auth-email" name="email"
+                 autocomplete="email" inputmode="email"
+                 spellcheck="false" autocapitalize="none"
+                 placeholder="name@example.com">
+        </div>
+
+        <div class="field">
+          <label for="auth-password">비밀번호</label>
+          <input type="password" id="auth-password" name="password"
+                 autocomplete="current-password" placeholder="비밀번호">
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="auth-submit">로그인</button>
+
+        <div class="auth-or">또는</div>
+
+        <!-- 구글 로그인 — 위의 이메일·비밀번호 로그인은 그대로 둔다 -->
+        <button type="button" class="btn btn-google" id="google-btn">
+          <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+          <span id="google-label">Google 계정으로 로그인</span>
+        </button>
+        <p class="google-note" id="google-note" hidden></p>
+
+        <p class="auth-warn" id="auth-warn" hidden></p>
+        <p class="auth-foot">계정은 관리자가 만들어 드립니다. 이 화면에서는 가입할 수 없습니다.</p>
+      </form>
+    </div>
+  </div>
+
+  <!-- 데이터가 준비되면 표시 -->
+  <main id="content" hidden>
+    <section class="stats" id="stats" aria-label="요약"></section>
+
+    <section class="card">
+      <h2>월별 상세 내역</h2>
+      <p class="section-sub">송금월 기준 합산 · 1월부터 아래로 · 월을 누르면 거래처별로 펼쳐집니다</p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col" rowspan="2">송금월</th>
+              <th scope="col" rowspan="2">건수</th>
+              <th scope="colgroup" colspan="3" class="grp sep">송금액 (총액)</th>
+              <th scope="colgroup" colspan="3" class="grp sep">미통관 (송금완료·입고 전)</th>
+              <th scope="colgroup" colspan="2" class="grp sep">미송금 (송금 전)</th>
+            </tr>
+            <tr>
+              <th scope="col" class="sep">USD</th>
+              <th scope="col">CNY</th>
+              <th scope="col">실제 송금액(원)</th>
+              <th scope="col" class="sep">USD</th>
+              <th scope="col">CNY</th>
+              <th scope="col">미통관 금액(원)</th>
+              <th scope="col" class="sep">USD</th>
+              <th scope="col">CNY</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+          <tfoot id="tfoot"></tfoot>
+        </table>
+      </div>
+      <p class="scroll-hint" id="scroll-hint" hidden>← 표는 좌우로 넘겨서 볼 수 있어요</p>
+      <p class="note-line" id="table-note"></p>
+    </section>
+
+    <!-- 관리자 전용 — elaina@pinkage.co.kr 로 로그인했을 때만 보인다 -->
+    <section class="card" id="adminOnly" hidden>
+      <h2>관리자 전용</h2>
+      <p class="section-sub" id="admin-target">삭제 대상을 확인하는 중…</p>
+
+      <button type="button" class="btn btn-danger" id="admin-del-btn" disabled>
+        표의 맨 마지막 줄 삭제
+      </button>
+
+      <div class="admin-result" id="admin-result" role="status" aria-live="polite" hidden>
+        <div class="admin-count" id="admin-count"></div>
+        <p class="admin-detail" id="admin-detail"></p>
+      </div>
+
+      <p class="admin-note">
+        서버가 실제로 돌려준 줄 수만 셉니다. 되돌릴 수 없습니다.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>월별 지급액</h2>
+      <p class="section-sub" id="chart-sub">거래처별 누적 · 원(KRW)</p>
+      <div class="chart-host" id="chart-host">
+        <div class="tooltip" id="tooltip" role="status" aria-live="polite"></div>
+      </div>
+      <div class="legend" id="legend"></div>
+    </section>
+  </main>
+
+</div>
+
+<script>
+/* ------------------------------------------------------------------ *
+ *  접속 정보
+ * ------------------------------------------------------------------ */
+var SUPABASE_URL = 'https://llbpdejavfndqcyfbylg.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_P2kqjzURf9FpGJMQs99Xow_WPEefyaf';
+var SCHEMA       = 'edu';                          // public 이 아니라 edu 스키마
+var TABLE        = 'edu_elaina_overseasremittance';
+
+/* 세션을 담아 둘 키 — 이 이름으로 localStorage 에 남아 새로고침을 견딘다 */
+var AUTH_STORAGE_KEY = 'day8-overseasremittance-auth';
+
+var SERIES = ['--series-1','--series-2','--series-3','--series-4',
+              '--series-5','--series-6','--series-7'];
+
+/* supabase-js 를 CDN 에서 불러온다 (jsDelivr 실패 시 unpkg 로 재시도) */
+var CDNS = [
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+  'https://unpkg.com/@supabase/supabase-js@2'
+];
+
+var el = function (id) { return document.getElementById(id); };
+
+/* ------------------------------------------------------------------ *
+ *  상태 표시 — 빈 화면을 만들지 않는다
+ * ------------------------------------------------------------------ */
+function showError(title, detail, hint) {
+  var box = document.createElement('div');
+  box.className = 'card error';
+
+  var h = document.createElement('h2');
+  h.textContent = title;
+  box.appendChild(h);
+
+  var pre = document.createElement('pre');
+  pre.textContent = detail;               // 에러 메시지를 그대로 노출
+  box.appendChild(pre);
+
+  if (hint) {
+    var p = document.createElement('p');
+    p.className = 'hint';
+    p.textContent = hint;
+    box.appendChild(p);
+  }
+
+  var status = el('status');
+  status.innerHTML = '';
+  status.appendChild(box);
+  el('content').hidden = true;
+  el('auth').hidden = true;
+}
+
+function describeError(err) {
+  if (!err) return '알 수 없는 오류';
+  if (typeof err === 'string') return err;
+  var parts = [];
+  if (err.message) parts.push('message: ' + err.message);
+  if (err.code)    parts.push('code: ' + err.code);
+  if (err.details) parts.push('details: ' + err.details);
+  if (err.hint)    parts.push('hint: ' + err.hint);
+  if (!parts.length) {
+    try { return JSON.stringify(err, Object.getOwnPropertyNames(err), 2); }
+    catch (e) { return String(err); }
+  }
+  if (err.stack) parts.push('\n' + err.stack);
+  return parts.join('\n');
+}
+
+/* ------------------------------------------------------------------ *
+ *  포맷터
+ * ------------------------------------------------------------------ */
+var nf0 = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 });
+var nf2 = new Intl.NumberFormat('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function num(v) { var n = Number(v); return isFinite(n) ? n : 0; }
+
+function krwCompact(v) {
+  var a = Math.abs(v);
+  if (a >= 1e8) return (v / 1e8).toFixed(1).replace(/\.0$/, '') + '억';
+  if (a >= 1e4) return Math.round(v / 1e4).toLocaleString('ko-KR') + '만';
+  return nf0.format(v);
+}
+
+/* ------------------------------------------------------------------ *
+ *  데이터 로드
+ * ------------------------------------------------------------------ */
+function loadScript(src) {
+  return new Promise(function (resolve, reject) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = function () { reject(new Error('스크립트를 불러오지 못했습니다: ' + src)); };
+    document.head.appendChild(s);
+  });
+}
+
+function loadSupabaseLib() {
+  return loadScript(CDNS[0]).catch(function () { return loadScript(CDNS[1]); });
+}
+
+/* ------------------------------------------------------------------ *
+ *  로그인 — Supabase Auth 이메일 + 비밀번호 (supabase-js 그대로 사용)
+ * ------------------------------------------------------------------ */
+var CLIENT = null;
+var MODE   = 'boot';        // 'boot' | 'login' | 'app' | 'error'
+var STORAGE_NOTE = '';
+
+/* 이메일은 비교하거나 저장하기 전에 언제나 소문자로 */
+function normEmail(v) {
+  return String(v == null ? '' : v).trim().toLowerCase();
+}
+
+/* 나만 보이는 영역의 주인 — 비교할 때 양쪽 다 normEmail 을 통과시킨다.
+   상수 쪽에도 걸어 두면 여기에 대문자를 섞어 적어도 판정이 깨지지 않는다. */
+var ADMIN_EMAIL = 'elaina@pinkage.co.kr';
+function isAdmin(email) {
+  return normEmail(email) === normEmail(ADMIN_EMAIL);
+}
+
+/* localStorage 를 정말 쓸 수 있는지 직접 써 보고 고른다.
+   못 쓰면 메모리로 대체하되, 새로고침하면 풀린다는 사실을 화면에 적는다. */
+function pickStorage() {
+  try {
+    var probe = '__sb_probe__';
+    window.localStorage.setItem(probe, '1');
+    window.localStorage.removeItem(probe);
+    return window.localStorage;
+  } catch (e) {
+    STORAGE_NOTE =
+      '이 브라우저에서 localStorage 를 쓸 수 없어(' + (e && e.message ? e.message : String(e)) + ') ' +
+      '새로고침하면 로그인이 풀립니다. file:// 대신 http://localhost 주소로 열어 주세요.';
+    var mem = {};
+    return {
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : null; },
+      setItem: function (k, v) { mem[k] = String(v); },
+      removeItem: function (k) { delete mem[k]; }
+    };
+  }
+}
+
+/* 구글에서 돌아올 주소 — 지금 이 페이지 주소 그대로 (쿼리·해시만 뗀다) */
+function currentPageUrl() {
+  return window.location.origin + window.location.pathname;
+}
+
+/* 구글이 실패를 알려 줄 때는 주소에 error 를 붙여 돌려보낸다.
+   supabase-js 가 주소를 정리하기 전에 읽어 둬야 한다. */
+var OAUTH_ERROR = null;
+function readOAuthError() {
+  var found = null;
+  [window.location.search, window.location.hash].forEach(function (part) {
+    if (!part || part.length < 2) return;
+    var q = new URLSearchParams(part.slice(1));
+    var code = q.get('error') || q.get('error_code');
+    if (!code) return;
+    var desc = q.get('error_description');
+    found = code + (desc ? '\n' + desc.replace(/\+/g, ' ') : '');
+  });
+  return found;
+}
+
+/* 실패 사유를 다듬지 않고 그대로 옮긴다 */
+function describeAuthError(err) {
+  if (!err) return '알 수 없는 오류';
+  if (typeof err === 'string') return err;
+  var lines = [];
+  lines.push(err.message ? String(err.message) : String(err));
+  var meta = [];
+  if (err.code   != null && err.code   !== '') meta.push('code: ' + err.code);
+  if (err.status != null && err.status !== '') meta.push('status: ' + err.status);
+  if (err.name   != null && !err.message)      meta.push('name: ' + err.name);
+  if (meta.length) lines.push(meta.join(' · '));
+  return lines.join('\n');
+}
+
+function showAuthMessage(title, detail) {
+  el('auth-msg-title').textContent = title;
+  el('auth-msg-detail').textContent = detail;   // 사유를 손대지 않고 그대로
+  el('auth-msg').hidden = false;
+}
+function hideAuthMessage() {
+  el('auth-msg').hidden = true;
+  el('auth-msg-title').textContent = '';
+  el('auth-msg-detail').textContent = '';
+}
+
+/* 로그인 화면으로 — 데이터는 DOM 에서도 전부 지운다 */
+function clearData() {
+  STATE = null;
+  ['stats', 'tbody', 'tfoot', 'legend'].forEach(function (id) {
+    var n = el(id); if (n) n.innerHTML = '';
+  });
+  var note = el('table-note'); if (note) note.textContent = '';
+  var host = el('chart-host');
+  if (host) {
+    Array.prototype.slice.call(host.querySelectorAll('svg')).forEach(function (s) { s.remove(); });
+  }
+  var tip = el('tooltip'); if (tip) { tip.innerHTML = ''; tip.style.opacity = '0'; }
+  var hint = el('scroll-hint'); if (hint) hint.hidden = true;
+
+  el('adminOnly').hidden = true;          // 로그아웃하면 관리자 영역도 닫는다
+  el('admin-result').hidden = true;
+  el('admin-count').textContent = '';
+  el('admin-detail').textContent = '';
+  el('admin-del-btn').disabled = true;
+}
+
+function enterLogin() {
+  MODE = 'login';
+  clearData();
+
+  el('content').hidden = true;
+  el('status').innerHTML = '';
+  el('account').hidden = true;
+  el('account-email').textContent = '';
+  el('subtitle').textContent = '로그인하면 요약·차트·표를 볼 수 있습니다.';
+
+  el('auth-email').disabled = false;
+  el('auth-password').disabled = false;
+  el('auth-password').value = '';
+  el('auth-submit').disabled = false;
+  el('auth-submit').textContent = '로그인';
+
+  el('google-label').textContent = 'Google 계정으로 로그인';
+  el('google-btn').disabled = (window.location.protocol === 'file:');
+
+  var warn = el('auth-warn');
+  if (STORAGE_NOTE) { warn.textContent = STORAGE_NOTE; warn.hidden = false; }
+
+  el('auth').hidden = false;
+  try { el('auth-email').focus(); } catch (e) {}
+}
+
+function enterApp(user) {
+  MODE = 'app';
+  hideAuthMessage();
+  el('auth-password').value = '';
+  el('auth').hidden = true;
+
+  var email = normEmail(user && user.email);     // 저장·표시 전 소문자
+  el('account-email').textContent = email;
+  el('account').hidden = false;
+
+  /* 소문자끼리 비교 — 내 계정이면 열고, 아니면 닫아 둔다 */
+  el('adminOnly').hidden = !isAdmin(email);
+
+  showLoading();
+  loadData();
+}
+
+function showLoading() {
+  el('content').hidden = true;
+  el('subtitle').textContent = SCHEMA + '.' + TABLE;
+  el('status').innerHTML =
+    '<div class="card">' +
+      '<span class="loading-label">불러오는 중…</span>' +
+      '<div class="loading-bar" role="progressbar" aria-label="데이터 불러오는 중"><i></i></div>' +
+    '</div>';
+}
+
+function wireAuthUi() {
+  var form   = el('auth-form');
+  var emailI = el('auth-email');
+  var pwI    = el('auth-password');
+  var submit = el('auth-submit');
+  var logout = el('logout-btn');
+
+  function setBusy(on) {
+    submit.disabled = on;
+    submit.textContent = on ? '로그인 중…' : '로그인';
+    emailI.disabled = on;
+    pwI.disabled = on;
+  }
+
+  /* 칸을 벗어나는 순간 소문자로 바꿔 둔다 — 보이는 값과 보내는 값을 같게 */
+  emailI.addEventListener('blur', function () { emailI.value = normEmail(emailI.value); });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    var email = normEmail(emailI.value);        // 보내기 전 소문자
+    emailI.value = email;
+    var password = pwI.value;
+
+    if (!email) {
+      showAuthMessage('로그인하지 못했습니다', '이메일칸이 비어 있습니다.');
+      emailI.focus(); return;
+    }
+    if (!password) {
+      showAuthMessage('로그인하지 못했습니다', '비밀번호칸이 비어 있습니다.');
+      pwI.focus(); return;
+    }
+
+    hideAuthMessage();
+    setBusy(true);
+
+    Promise.resolve(CLIENT.auth.signInWithPassword({ email: email, password: password }))
+      .then(function (res) {
+        setBusy(false);
+        if (res && res.error) {
+          showAuthMessage('로그인하지 못했습니다', describeAuthError(res.error));
+          pwI.value = ''; pwI.focus();
+          return;
+        }
+        var user = res && res.data && res.data.user;
+        if (!user) {
+          showAuthMessage('로그인하지 못했습니다', '서버가 사용자 정보를 돌려주지 않았습니다.');
+          return;
+        }
+        enterApp(user);
+      })
+      .catch(function (err) {
+        setBusy(false);
+        showAuthMessage('로그인하지 못했습니다', describeAuthError(err));
+      });
+  });
+
+  /* 구글 로그인 — 이메일·비밀번호와 나란히 둔다 */
+  var gBtn   = el('google-btn');
+  var gLabel = el('google-label');
+  var gNote  = el('google-note');
+
+  /* file:// 에서는 구글이 돌아올 주소를 만들 수 없다 */
+  if (window.location.protocol === 'file:') {
+    gBtn.disabled = true;
+    gNote.textContent =
+      'file:// 로 연 상태에서는 구글 로그인을 쓸 수 없습니다. ' +
+      '배포된 https 주소나 http://localhost 로 열어 주세요. (이메일·비밀번호 로그인은 그대로 됩니다)';
+    gNote.hidden = false;
+  }
+
+  function resetGoogleBtn() {
+    gBtn.disabled = false;
+    gLabel.textContent = 'Google 계정으로 로그인';
+  }
+
+  /* 이동하기 전에 한 번 찔러 본다.
+     제공자가 꺼져 있으면 Supabase 가 400 JSON 을 그대로 뱉는데, 그냥 이동하면
+     사용자가 supabase.co 의 JSON 화면에 버려진다. 그 본문을 여기서 받아
+     우리 화면에 빨간 글씨로 띄운다. 판단이 안 서면 원래대로 이동한다. */
+  function goOrShowError(url) {
+    var settled = false;
+    function go() { window.location.assign(url); }
+    var timer = setTimeout(function () {
+      if (settled) return;
+      settled = true; go();
+    }, 6000);
+
+    return fetch(url, { method: 'GET', redirect: 'manual', credentials: 'omit' })
+      .then(function (r) {
+        if (settled) return;
+        settled = true; clearTimeout(timer);
+
+        // 리다이렉트(구글로 감) 또는 정상 응답이면 그대로 이동
+        if (r.type === 'opaqueredirect' || r.status === 0 ||
+            (r.status >= 300 && r.status < 400) || r.ok) { go(); return; }
+
+        return r.text().then(function (body) {
+          showAuthMessage('구글 로그인에 실패했습니다',
+            (body && body.trim()) ? body : ('HTTP ' + r.status + ' (응답 본문 없음)'));
+          resetGoogleBtn();
+        });
+      })
+      .catch(function () {
+        if (settled) return;
+        settled = true; clearTimeout(timer);
+        go();                      // 미리 확인하지 못했으면 원래대로 이동
+      });
+  }
+
+  gBtn.addEventListener('click', function () {
+    hideAuthMessage();
+    gBtn.disabled = true;
+    gLabel.textContent = '구글로 이동 중…';
+
+    Promise.resolve(CLIENT.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: currentPageUrl(),   // 지금 이 페이지 주소로 돌아온다
+        skipBrowserRedirect: true       // 이동은 아래에서 직접 한다
+      }
+    }))
+      .then(function (res) {
+        if (res && res.error) {
+          resetGoogleBtn();
+          showAuthMessage('구글 로그인을 시작하지 못했습니다', describeAuthError(res.error));
+          return;
+        }
+        var url = res && res.data && res.data.url;
+        if (!url) {
+          resetGoogleBtn();
+          showAuthMessage('구글 로그인을 시작하지 못했습니다',
+            'Supabase 가 이동할 주소를 돌려주지 않았습니다.');
+          return;
+        }
+        return goOrShowError(url);
+      })
+      .catch(function (err) {
+        resetGoogleBtn();
+        showAuthMessage('구글 로그인을 시작하지 못했습니다', describeAuthError(err));
+      });
+  });
+
+  logout.addEventListener('click', function () {
+    logout.disabled = true;
+    logout.textContent = '로그아웃 중…';
+    Promise.resolve(CLIENT.auth.signOut())
+      .then(function (res) {
+        logout.disabled = false; logout.textContent = '로그아웃';
+        enterLogin();
+        if (res && res.error) {
+          showAuthMessage('로그아웃 중 문제가 있었습니다', describeAuthError(res.error));
+        }
+      })
+      .catch(function (err) {
+        logout.disabled = false; logout.textContent = '로그아웃';
+        enterLogin();
+        showAuthMessage('로그아웃 중 문제가 있었습니다', describeAuthError(err));
+      });
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ *  관리자 전용 — 표의 맨 마지막 줄 삭제
+ * ------------------------------------------------------------------ */
+
+/* 표에서 맨 아래에 그려지는 월을 찾고, 그 월에 속한 원본 행의 id 를 모은다.
+   정렬은 renderTable 과 같은 orderedSummary 를 써서 어긋날 수 없게 한다. */
+function adminTarget() {
+  if (!STATE) return null;
+  var ordered = orderedSummary(STATE.summary);
+  if (!ordered.length) return null;
+
+  var key = ordered[ordered.length - 1].key;
+  var ids = [], missing = 0;
+  STATE.rows.forEach(function (r) {
+    if (r.month !== key) return;
+    if (r.id == null) missing++; else ids.push(r.id);
+  });
+  return { key: key, ids: ids, missing: missing };
+}
+
+function showAdminResult(count, detail, kind) {
+  var box = el('admin-result');
+  box.className = 'admin-result' + (kind === 'bad' ? ' bad' : '');
+  el('admin-count').textContent = count;
+  el('admin-detail').textContent = detail || '';
+  box.hidden = false;
+}
+
+function updateAdminTarget() {
+  var box = el('adminOnly');
+  if (!box || box.hidden) return;
+
+  var btn = el('admin-del-btn');
+  var t = adminTarget();
+  if (!t) {
+    el('admin-target').textContent = '표에 지울 줄이 없습니다.';
+    btn.disabled = true;
+    return;
+  }
+  el('admin-target').textContent =
+    '삭제 대상: 표의 맨 마지막 줄 「' + t.key + '」 · 원본 ' + t.ids.length + '행' +
+    (t.missing ? ' (id 가 없어 지울 수 없는 행 ' + t.missing + '개는 제외)' : '');
+  btn.disabled = t.ids.length === 0;
+}
+
+function wireAdmin() {
+  var btn = el('admin-del-btn');
+
+  btn.addEventListener('click', function () {
+    var t = adminTarget();
+    if (!t) { showAdminResult('0건', '표에 지울 줄이 없습니다.', 'bad'); return; }
+    if (!t.ids.length) {
+      showAdminResult('0건', '이 줄의 원본 행에 id 가 없어 삭제 요청을 만들 수 없습니다.', 'bad');
+      return;
+    }
+
+    var ok = window.confirm(
+      '표의 맨 마지막 줄 「' + t.key + '」 의 원본 ' + t.ids.length + '행을 지웁니다.\n' +
+      '되돌릴 수 없습니다. 진행할까요?');
+    if (!ok) return;
+
+    btn.disabled = true;
+    btn.textContent = '삭제 중…';
+    el('admin-result').hidden = true;
+
+    /* delete 뒤에 select 를 붙여 "실제로 지워진 줄"을 받아 온다.
+       성공 여부가 아니라 돌아온 줄 수만 센다. */
+    Promise.resolve(
+      CLIENT.from(TABLE).delete().in('id', t.ids).select()
+    )
+      .then(function (res) {
+        btn.textContent = '표의 맨 마지막 줄 삭제';
+
+        if (res && res.error) {
+          btn.disabled = false;
+          showAdminResult('0건', describeAuthError(res.error), 'bad');
+          return;
+        }
+
+        var returned = (res && res.data) ? res.data.length : 0;
+
+        if (returned === 0) {
+          btn.disabled = false;
+          showAdminResult('0건',
+            '요청은 오류 없이 끝났지만 서버가 돌려준 삭제된 줄이 0개입니다. ' +
+            '실제로 지워지지 않았습니다.\n' +
+            '「' + t.key + '」 · 요청한 행 ' + t.ids.length + '개\n' +
+            'authenticated 롤에 delete 정책 또는 GRANT DELETE 가 없으면 이렇게 됩니다.', 'bad');
+          return;
+        }
+
+        showAdminResult(returned + '건',
+          '「' + t.key + '」 · 요청한 행 ' + t.ids.length + '개 중 서버가 삭제됐다고 돌려준 행 ' +
+          returned + '개' +
+          (returned < t.ids.length
+            ? '\n요청보다 적게 지워졌습니다. 나머지 ' + (t.ids.length - returned) + '개는 남아 있습니다.'
+            : ''));
+
+        loadData();          // 표·차트·요약을 다시 그린다 (버튼도 여기서 다시 켜진다)
+      })
+      .catch(function (err) {
+        btn.disabled = false;
+        btn.textContent = '표의 맨 마지막 줄 삭제';
+        showAdminResult('0건', describeAuthError(err), 'bad');
+      });
+  });
+}
+
+function boot() {
+  OAUTH_ERROR = readOAuthError();     // supabase-js 가 주소를 지우기 전에 먼저 읽는다
+
+  loadSupabaseLib()
+    .then(function () {
+      if (!window.supabase || !window.supabase.createClient) {
+        throw new Error('supabase-js 를 CDN 에서 불러오지 못했습니다. (window.supabase 없음)');
+      }
+      // 스키마는 edu, 세션은 브라우저에 저장해 새로고침을 견딘다
+      CLIENT = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        db: { schema: SCHEMA },
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,   // 구글에서 돌아온 주소의 코드를 세션으로 바꾼다
+          storageKey: AUTH_STORAGE_KEY,
+          storage: pickStorage()
+        }
+      });
+
+      wireAuthUi();
+      wireAdmin();
+
+      CLIENT.auth.onAuthStateChange(function (event, session) {
+        if (event === 'SIGNED_OUT') { enterLogin(); return; }
+        if (session && session.user && MODE !== 'app' && MODE !== 'error') {
+          enterApp(session.user);
+        }
+      });
+
+      return CLIENT.auth.getSession();
+    })
+    .then(function (res) {
+      if (res && res.error) throw res.error;
+      var session = res && res.data && res.data.session;
+      if (MODE === 'app') return;                 // onAuthStateChange 가 이미 열었으면 그대로
+      if (session && session.user) { enterApp(session.user); return; }
+
+      enterLogin();
+      if (OAUTH_ERROR) {                          // 구글이 실패를 붙여 돌려보낸 경우
+        showAuthMessage('구글 로그인에 실패했습니다', OAUTH_ERROR);
+      }
+    })
+    .catch(function (err) {
+      MODE = 'error';
+      showError('시작하지 못했습니다', describeError(err), SUPABASE_URL);
+    });
+}
+
+/* ------------------------------------------------------------------ *
+ *  데이터 로드 — 로그인한 뒤에만 부른다
+ * ------------------------------------------------------------------ */
+function loadData() {
+  Promise.resolve(
+    CLIENT.from(TABLE).select('*').order('remit_month', { ascending: false })
+  )
+    .then(function (res) {
+      if (res.error) throw res.error;
+      var rows = res.data || [];
+      if (!rows.length) {
+        showError('데이터가 없습니다',
+          SCHEMA + '.' + TABLE + ' 조회는 성공했지만 반환된 행이 0건입니다.',
+          '테이블이 비어 있거나, 지금 로그인한 계정에 읽기를 허용하는 RLS 정책이 없을 수 있습니다.');
+        return;
+      }
+      render(rows.map(normalize));
+    })
+    .catch(function (err) {
+      showError('데이터를 불러오지 못했습니다', describeError(err),
+        '스키마 "' + SCHEMA + '" / 테이블 "' + TABLE + '" · ' + SUPABASE_URL);
+    });
+}
+
+function normalize(r) {
+  return {
+    id:        r.id,
+    month:     r.remit_month == null ? '미상' : String(r.remit_month),
+    vendor:    r.vendor_name == null ? '(미지정)' : String(r.vendor_name),
+    tx:        num(r.tx_count),
+    usd:       num(r.usd_amount),
+    cny:       num(r.cny_amount),
+    krw:       num(r.paid_krw),
+    unclUsd:   num(r.uncleared_usd_amount),
+    unclCny:   num(r.uncleared_cny_amount),
+    unclKrw:   num(r.uncleared_paid_krw),
+    unpaidUsd: num(r.unpaid_usd_amount),
+    unpaidCny: num(r.unpaid_cny_amount)
+  };
+}
+
+/* YYYY-MM 이 아닌 값('미상' 등)은 항상 맨 뒤로 */
+var MONTH_RE = /^\d{4}-\d{2}$/;
+function monthRank(m) { return MONTH_RE.test(m) ? 1 : 0; }
+
+/* ------------------------------------------------------------------ *
+ *  렌더
+ * ------------------------------------------------------------------ */
+var STATE = null;
+var SUM_FIELDS = ['tx','usd','cny','krw','unclUsd','unclCny','unclKrw','unpaidUsd','unpaidCny'];
+
+function emptySum() {
+  var o = {};
+  SUM_FIELDS.forEach(function (f) { o[f] = 0; });
+  return o;
+}
+function addInto(acc, r) {
+  SUM_FIELDS.forEach(function (f) { acc[f] += r[f]; });
+  return acc;
+}
+
+function render(rows) {
+  /* 거래처 순서 — 지급액 합계 기준으로 한 번만 고정한다 */
+  var vendorTotals = {};
+  rows.forEach(function (r) { vendorTotals[r.vendor] = (vendorTotals[r.vendor] || 0) + r.krw; });
+  var vendors = Object.keys(vendorTotals).sort(function (a, b) {
+    return vendorTotals[b] - vendorTotals[a] || a.localeCompare(b, 'ko');
+  });
+  var colorOf = {};
+  vendors.forEach(function (v, i) {
+    colorOf[v] = i < SERIES.length ? 'var(' + SERIES[i] + ')' : 'var(--ink-muted)';
+  });
+
+  /* 월 목록 — 오래된 → 최근, '미상'은 맨 뒤 */
+  var monthKeys = [];
+  rows.forEach(function (r) { if (monthKeys.indexOf(r.month) === -1) monthKeys.push(r.month); });
+  monthKeys.sort(function (a, b) {
+    var ra = monthRank(a), rb = monthRank(b);
+    if (ra !== rb) return rb - ra;
+    return a < b ? -1 : a > b ? 1 : 0;
+  });
+
+  /* 월별 합산 + 그 안의 거래처별 합산 */
+  var summary = monthKeys.map(function (k) {
+    var tot = emptySum();
+    var perVendor = [];
+    vendors.forEach(function (v) {
+      var acc = emptySum(), hit = false;
+      rows.forEach(function (r) {
+        if (r.month === k && r.vendor === v) { addInto(acc, r); hit = true; }
+      });
+      if (hit) { perVendor.push({ vendor: v, color: colorOf[v], sum: acc }); addInto(tot, acc); }
+    });
+    return { key: k, sum: tot, vendors: perVendor };
+  });
+
+  /* 차트용 — 월별 지급액(원)을 거래처별로 쌓는다 */
+  var months = summary.map(function (m) {
+    var segs = m.vendors
+      .filter(function (pv) { return pv.sum.krw > 0; })
+      .map(function (pv) { return { vendor: pv.vendor, value: pv.sum.krw, color: pv.color }; });
+    return { key: m.key, segs: segs, total: segs.reduce(function (s, x) { return s + x.value; }, 0) };
+  });
+  var dropped = months.filter(function (m) { return m.total <= 0; }).map(function (m) { return m.key; });
+  months = months.filter(function (m) { return m.total > 0; });
+
+  STATE = {
+    rows: rows, vendors: vendors, colorOf: colorOf,
+    months: months, dropped: dropped, summary: summary
+  };
+
+  renderStats(rows, vendors, summary);
+  renderLegend(vendors, colorOf);
+  renderTable(summary);
+  drawChart();
+
+  el('subtitle').textContent =
+    SCHEMA + '.' + TABLE + ' · ' + rows.length + '행 · ' + vendors.length + '개 거래처';
+
+  el('status').innerHTML = '';
+  el('content').hidden = false;
+
+  drawChart();       // 표시된 뒤 실제 폭으로 다시 그린다
+  syncScrollHint();
+  updateAdminTarget();
+}
+
+/* 배지: 블러시 면 + 네이비 글자 (9.67:1) */
+function badge(text) {
+  var b = document.createElement('span');
+  b.className = 'badge';
+  b.textContent = text;
+  return b;
+}
+
+function tile(label, value, noteParts, hero) {
+  var d = document.createElement('div');
+  d.className = 'tile' + (hero ? ' hero' : '');
+
+  var l = document.createElement('div'); l.className = 'label'; l.textContent = label;
+  var v = document.createElement('div'); v.className = 'value'; v.textContent = value;
+  d.appendChild(l); d.appendChild(v);
+
+  if (noteParts && noteParts.length) {
+    var n = document.createElement('div'); n.className = 'note';
+    noteParts.forEach(function (p) {
+      if (p == null) return;
+      n.appendChild(typeof p === 'string' ? document.createTextNode(p) : p);
+    });
+    d.appendChild(n);
+  }
+  return d;
+}
+
+/* 미송금분은 미통관 금액에 포함돼 들어온다 (unpaid ⊆ uncleared).
+   표에서는 빼서 "송금은 됐지만 아직 입고 전"인 금액만 미통관으로 보여준다. */
+function transitUsd(s) { return Math.max(0, s.unclUsd - s.unpaidUsd); }
+function transitCny(s) { return Math.max(0, s.unclCny - s.unpaidCny); }
+
+function renderStats(rows, vendors, summary) {
+  var t = emptySum();
+  rows.forEach(function (r) { addInto(t, r); });
+
+  var mCount = summary.filter(function (m) { return MONTH_RE.test(m.key); }).length;
+  var tUsd = transitUsd(t), tCny = transitCny(t);
+
+  var unclMonths = summary
+    .filter(function (m) { return m.sum.unclKrw > 0 || transitUsd(m.sum) > 0 || transitCny(m.sum) > 0; })
+    .map(function (m) { return m.key; });
+  var unpaidMonths = summary
+    .filter(function (m) { return m.sum.unpaidUsd > 0 || m.sum.unpaidCny > 0; })
+    .map(function (m) { return m.key; });
+
+  /* 통화가 섞이면 합칠 수 없으니 있는 것만 나열한다 */
+  function fxList(usd, cny) {
+    var out = [];
+    if (usd > 0) out.push('$' + nf0.format(usd));
+    if (cny > 0) out.push('¥' + nf0.format(cny));
+    return out.length ? out.join(' · ') : '없음';
+  }
+  function monthBadges(list) {
+    return list.map(function (k) { return badge(k); });
+  }
+
+  var s = el('stats');
+  s.innerHTML = '';
+
+  s.appendChild(tile('총 지급액', krwCompact(t.krw) + '원',
+    [nf0.format(t.krw) + '원 · ', badge(mCount + '개월')], true));
+
+  s.appendChild(tile('총 거래 건수', nf0.format(t.tx) + '건',
+    [badge(vendors.length + '개 거래처')]));
+
+  s.appendChild(tile('USD 합계', '$' + nf0.format(t.usd),
+    ['미통관 ' + (tUsd > 0 ? '$' + nf0.format(tUsd) : '없음') +
+     ' · 미송금 ' + (t.unpaidUsd > 0 ? '$' + nf0.format(t.unpaidUsd) : '없음')]));
+
+  s.appendChild(tile('CNY 합계', '¥' + nf0.format(t.cny),
+    ['미통관 ' + (tCny > 0 ? '¥' + nf0.format(tCny) : '없음') +
+     ' · 미송금 ' + (t.unpaidCny > 0 ? '¥' + nf0.format(t.unpaidCny) : '없음')]));
+
+  s.appendChild(tile('미통관 금액', krwCompact(t.unclKrw) + '원',
+    unclMonths.length
+      ? monthBadges(unclMonths).concat(['지급액의 ' +
+          (t.krw > 0 ? (t.unclKrw / t.krw * 100).toFixed(1) : '0') + '%'])
+      : ['전량 통관 완료']));
+
+  s.appendChild(tile('미송금', fxList(t.unpaidUsd, t.unpaidCny),
+    unpaidMonths.length ? monthBadges(unpaidMonths) : ['전량 송금 완료']));
+}
+
+function renderLegend(vendors, colorOf) {
+  var lg = el('legend');
+  lg.innerHTML = '';
+  vendors.forEach(function (v) {
+    var s = document.createElement('span');
+    var i = document.createElement('i'); i.style.background = colorOf[v];
+    s.appendChild(i);
+    s.appendChild(document.createTextNode(v));
+    lg.appendChild(s);
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ *  표 — 송금월 기준 합산, 1월이 위. 월 행을 누르면 거래처별로 펼쳐짐
+ * ------------------------------------------------------------------ */
+function moneyCell(v, digits, extraClass) {
+  var td = document.createElement('td');
+  td.textContent = v === 0 ? '–' : (digits === 0 ? nf0.format(v) : nf2.format(v));
+  var cls = [];
+  if (v === 0) cls.push('zero');
+  if (extraClass) cls.push(extraClass);
+  if (cls.length) td.className = cls.join(' ');
+  return td;
+}
+
+function fillAmountCells(tr, s) {
+  var tUsd = transitUsd(s), tCny = transitCny(s);
+  tr.appendChild(moneyCell(s.usd, 2, 'sep'));
+  tr.appendChild(moneyCell(s.cny, 2));
+  tr.appendChild(moneyCell(s.krw, 0));
+  tr.appendChild(moneyCell(tUsd, 2, 'sep'));
+  tr.appendChild(moneyCell(tCny, 2));
+  tr.appendChild(moneyCell(s.unclKrw, 0));
+  tr.appendChild(moneyCell(s.unpaidUsd, 2, 'sep'));
+  tr.appendChild(moneyCell(s.unpaidCny, 2));
+}
+
+/* 1월이 맨 위, 아래로 갈수록 최근 ('미상'은 맨 아래).
+   표를 그릴 때와 삭제 대상을 고를 때 이 하나만 쓴다 — 어긋나면 엉뚱한 줄이 지워진다. */
+function orderedSummary(summary) {
+  return summary.slice().sort(function (a, b) {
+    var ra = monthRank(a.key), rb = monthRank(b.key);
+    if (ra !== rb) return rb - ra;
+    return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+  });
+}
+
+function renderTable(summary) {
+  var tb = el('tbody');
+  tb.innerHTML = '';
+
+  var ordered = orderedSummary(summary);
+
+  ordered.forEach(function (m, idx) {
+    var tr = document.createElement('tr');
+    tr.className = 'month-row';
+
+    var tdM = document.createElement('td');
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'row-toggle';
+    btn.setAttribute('aria-expanded', 'false');
+    var caret = document.createElement('span');
+    caret.className = 'caret';
+    caret.textContent = '▶';
+    caret.setAttribute('aria-hidden', 'true');
+    btn.appendChild(caret);
+    btn.appendChild(document.createTextNode(m.key));
+    tdM.appendChild(btn);
+    tr.appendChild(tdM);
+
+    var tdC = document.createElement('td');
+    tdC.textContent = nf0.format(m.sum.tx);
+    tr.appendChild(tdC);
+
+    fillAmountCells(tr, m.sum);
+    tb.appendChild(tr);
+
+    /* 거래처별 상세 (기본 접힘) */
+    var kids = m.vendors.map(function (pv, vi) {
+      var vtr = document.createElement('tr');
+      vtr.className = 'vendor-row';
+      vtr.id = 'grp-' + idx + '-' + vi;
+      vtr.hidden = true;
+
+      var vtd = document.createElement('td');
+      var span = document.createElement('span');
+      span.className = 'vendor-cell';
+      var dot = document.createElement('i');
+      dot.style.background = pv.color;
+      span.appendChild(dot);
+      span.appendChild(document.createTextNode(pv.vendor));
+      vtd.appendChild(span);
+      vtr.appendChild(vtd);
+
+      var ctd = document.createElement('td');
+      ctd.textContent = nf0.format(pv.sum.tx);
+      vtr.appendChild(ctd);
+
+      fillAmountCells(vtr, pv.sum);
+      tb.appendChild(vtr);
+      return vtr;
+    });
+
+    btn.setAttribute('aria-controls', kids.map(function (k) { return k.id; }).join(' '));
+    btn.addEventListener('click', function () {
+      var open = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+      kids.forEach(function (k) { k.hidden = open; });
+      syncScrollHint();
+    });
+  });
+
+  /* 합계 행 */
+  var tot = emptySum();
+  summary.forEach(function (m) { addInto(tot, m.sum); });
+  var tf = el('tfoot');
+  tf.innerHTML = '';
+  var ftr = document.createElement('tr');
+  var ftd = document.createElement('td');
+  ftd.textContent = '합계 (' + summary.length + '개월)';
+  ftr.appendChild(ftd);
+  var fc = document.createElement('td');
+  fc.textContent = nf0.format(tot.tx);
+  ftr.appendChild(fc);
+  fillAmountCells(ftr, tot);
+  tf.appendChild(ftr);
+
+  el('table-note').textContent =
+    '※ 미통관 = 송금은 끝났지만 아직 입고(통관)되지 않은 금액. 미송금 = 아직 송금하지 않은 금액. ' +
+    '원본의 미통관 금액에는 미송금분이 섞여 있어 빼고 계산했습니다. ' +
+    '「송금액 (총액)」의 USD·CNY 에는 미송금분이 포함돼 있고, 「실제 송금액(원)」은 실제로 지급된 금액입니다. ' +
+    '이 테이블에는 입고(통관)일 컬럼이 없어 미통관·미송금 금액도 해당 건의 송금월에 묶어 표시합니다.';
+}
+
+/* ------------------------------------------------------------------ *
+ *  차트 — 월별 지급액 누적 막대 (순수 SVG)
+ * ------------------------------------------------------------------ */
+var SVGNS = 'http://www.w3.org/2000/svg';
+function svgEl(name, attrs) {
+  var n = document.createElementNS(SVGNS, name);
+  for (var k in attrs) if (attrs[k] != null) n.setAttribute(k, attrs[k]);
+  return n;
+}
+
+/* 위쪽 두 모서리만 둥근 막대 (반경 6px — 허용 단계) */
+function topRoundedPath(x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h));
+  return 'M' + x + ',' + (y + h) +
+         'V' + (y + r) +
+         'a' + r + ',' + r + ' 0 0 1 ' + r + ',' + (-r) +
+         'h' + (w - 2 * r) +
+         'a' + r + ',' + r + ' 0 0 1 ' + r + ',' + r +
+         'V' + (y + h) + 'Z';
+}
+
+function niceTicks(max, count) {
+  if (max <= 0) return { max: 1, ticks: [0, 1] };
+  var raw = max / count;
+  var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+  var norm = raw / mag;
+  var step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+  var top = Math.ceil(max / step) * step;
+  var ticks = [];
+  for (var v = 0; v <= top + step / 2; v += step) ticks.push(v);
+  return { max: top, ticks: ticks };
+}
+
+function drawChart() {
+  if (!STATE) return;
+  var host = el('chart-host');
+  var tip  = el('tooltip');
+  var months = STATE.months;
+  if (!months.length) return;
+
+  var W = Math.max(260, host.clientWidth || 320);
+  var narrow = W < 480;
+  var PAD = { t: 28, r: 8, b: 34, l: narrow ? 42 : 54 };
+  var H = Math.round(Math.max(220, Math.min(360, W * 0.5)));
+
+  Array.prototype.slice.call(host.querySelectorAll('svg')).forEach(function (s) { s.remove(); });
+
+  var maxTotal = months.reduce(function (m, x) { return Math.max(m, x.total); }, 0);
+  var scaleInfo = niceTicks(maxTotal, narrow ? 3 : 4);
+  var yMax = scaleInfo.max;
+
+  var plotW = W - PAD.l - PAD.r;
+  var plotH = H - PAD.t - PAD.b;
+  var baseY = PAD.t + plotH;
+  var band  = plotW / months.length;
+  var barW  = Math.min(24, band * 0.62);
+
+  var y = function (v) { return baseY - (v / yMax) * plotH; };
+
+  /* 같은 해라면 x축은 "8월"처럼 짧게 */
+  var years = {};
+  months.forEach(function (m) { if (MONTH_RE.test(m.key)) years[m.key.slice(0, 4)] = 1; });
+  var yearList = Object.keys(years);
+  var oneYear = yearList.length === 1;
+  var xLabel = function (k) {
+    if (!MONTH_RE.test(k)) return k;
+    return oneYear ? (parseInt(k.slice(5), 10) + '월') : k.slice(2);
+  };
+  el('chart-sub').textContent =
+    (oneYear ? yearList[0] + '년 · ' : '') + '거래처별 누적 · 원(KRW)' +
+    (STATE.dropped.length ? ' · 지급액 0인 ' + STATE.dropped.join(', ') + ' 제외(표에는 포함)' : '');
+
+  var svg = svgEl('svg', {
+    viewBox: '0 0 ' + W + ' ' + H,
+    width: W, height: H,
+    role: 'img',
+    'aria-label': '월별 지급액 누적 막대그래프. 상세 수치는 위 표에 있습니다.'
+  });
+
+  /* 그리드(1px #ececec) + y축 눈금 */
+  scaleInfo.ticks.forEach(function (t) {
+    var yy = Math.round(y(t)) + 0.5;
+    svg.appendChild(svgEl('line', {
+      x1: PAD.l, x2: W - PAD.r, y1: yy, y2: yy,
+      stroke: t === 0 ? 'var(--border)' : 'var(--line)', 'stroke-width': 1
+    }));
+    var lb = svgEl('text', {
+      x: PAD.l - 8, y: yy + 4, 'text-anchor': 'end',
+      fill: 'var(--ink)', 'font-size': narrow ? 10 : 11,
+      'font-variant-numeric': 'tabular-nums'
+    });
+    lb.textContent = t === 0 ? '0' : krwCompact(t);
+    svg.appendChild(lb);
+  });
+
+  /* 직접 라벨은 최대 월과 최근 월에만 */
+  var maxIdx = 0;
+  months.forEach(function (m, i) { if (m.total > months[maxIdx].total) maxIdx = i; });
+  var lastIdx = -1;
+  for (var i = months.length - 1; i >= 0; i--) {
+    if (MONTH_RE.test(months[i].key) && months[i].total > 0) { lastIdx = i; break; }
+  }
+
+  months.forEach(function (m, mi) {
+    var cx = PAD.l + band * mi + band / 2;
+    var x  = cx - barW / 2;
+
+    var acc = 0;
+    var drawn = m.segs.map(function (s) {
+      var y0 = y(acc), y1 = y(acc + s.value);
+      acc += s.value;
+      return { seg: s, top: y1, h: y0 - y1 };
+    });
+
+    drawn.forEach(function (d, si) {
+      var isTop = si === drawn.length - 1;
+      var top = d.top, h = d.h;
+      if (!isTop) { top += 2; h -= 2; }        // 세그먼트 사이 2px 여백
+      if (h <= 0.5) return;
+      var node = isTop
+        ? svgEl('path', { d: topRoundedPath(x, top, barW, h, 6), fill: d.seg.color })
+        : svgEl('rect', { x: x, y: top, width: barW, height: h, fill: d.seg.color });
+      svg.appendChild(node);
+    });
+
+    /* 캡 라벨 — 최대/최근 월만 (네이비 800) */
+    if ((mi === maxIdx || mi === lastIdx) && m.total > 0) {
+      var half = (narrow ? 10 : 11) * 2;
+      var capX = Math.max(PAD.l + half, Math.min(cx, W - PAD.r - half));
+      var cap = svgEl('text', {
+        x: capX, y: y(m.total) - 9, 'text-anchor': 'middle',
+        fill: 'var(--navy)', 'font-size': narrow ? 10 : 11, 'font-weight': 800,
+        'font-variant-numeric': 'tabular-nums'
+      });
+      cap.textContent = krwCompact(m.total);
+      svg.appendChild(cap);
+    }
+
+    /* x축 라벨 */
+    var xl = svgEl('text', {
+      x: cx, y: baseY + 18, 'text-anchor': 'middle',
+      fill: 'var(--ink)', 'font-size': narrow ? 10 : 11
+    });
+    xl.textContent = xLabel(m.key);
+    svg.appendChild(xl);
+
+    /* 마크보다 큰 히트 영역 */
+    var hit = svgEl('rect', {
+      x: PAD.l + band * mi, y: PAD.t, width: band, height: plotH,
+      fill: 'transparent', style: 'cursor:pointer'
+    });
+    var show = function (evt) {
+      var hostBox = host.getBoundingClientRect();
+      var px = (evt.touches ? evt.touches[0].clientX : evt.clientX) - hostBox.left;
+      tip.innerHTML = '';
+
+      var head = document.createElement('div');
+      head.className = 'tt-head';
+      head.textContent = m.key;
+      tip.appendChild(head);
+
+      m.segs.slice().reverse().forEach(function (s) {
+        var row = document.createElement('div');
+        row.className = 'tt-row';
+        var dot = document.createElement('i'); dot.style.background = s.color;
+        var name = document.createElement('span'); name.textContent = s.vendor;
+        var val = document.createElement('b'); val.textContent = krwCompact(s.value);
+        row.appendChild(dot); row.appendChild(name); row.appendChild(val);
+        tip.appendChild(row);
+      });
+
+      var tot = document.createElement('div');
+      tot.className = 'tt-total';
+      tot.appendChild(document.createTextNode('합계'));
+      var tb2 = document.createElement('b');
+      tb2.textContent = nf0.format(m.total) + '원';
+      tot.appendChild(tb2);
+      tip.appendChild(tot);
+
+      tip.style.opacity = '1';
+      var tw = tip.offsetWidth;
+      var left = Math.max(4, Math.min(px - tw / 2, hostBox.width - tw - 4));
+      tip.style.left = left + 'px';
+      tip.style.top  = Math.max(0, y(m.total) - tip.offsetHeight - 12) + 'px';
+    };
+    hit.addEventListener('mouseenter', show);
+    hit.addEventListener('mousemove', show);
+    hit.addEventListener('mouseleave', function () { tip.style.opacity = '0'; });
+    hit.addEventListener('touchstart', show, { passive: true });
+    svg.appendChild(hit);
+  });
+
+  host.appendChild(svg);
+}
+
+/* 표가 실제로 넘칠 때만 안내를 띄운다 */
+function syncScrollHint() {
+  var hint = el('scroll-hint');
+  var box = document.querySelector('.table-scroll');
+  if (!hint || !box) return;
+  hint.hidden = box.scrollWidth <= box.clientWidth + 1;
+}
+
+/* 폭이 바뀌면 다시 그린다 */
+var resizeTimer = null;
+window.addEventListener('resize', function () {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(function () { drawChart(); syncScrollHint(); }, 120);
+});
+
+/* 예기치 못한 오류도 화면에 남긴다 (로그인 화면은 덮지 않는다) */
+window.addEventListener('error', function (e) {
+  if (MODE === 'app' && el('content').hidden) {
+    showError('실행 중 오류가 발생했습니다', describeError(e.error || e.message));
+  }
+});
+window.addEventListener('unhandledrejection', function (e) {
+  if (MODE === 'app' && el('content').hidden) {
+    showError('실행 중 오류가 발생했습니다', describeError(e.reason));
+  }
+});
+
+boot();
+</script>
+</body>
+</html>
