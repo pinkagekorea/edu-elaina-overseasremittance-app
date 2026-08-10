@@ -526,6 +526,7 @@
   }
   .memo-card .memo-foot { padding: 0 12px 10px; }
   .memo-row  .memo-foot { margin-top: 7px; }
+  .memo-card .shot-strip { padding: 0 12px 9px; margin: 0; }
   .memo-del {
     font: inherit; font-size: 11px; background: none; border: 0; padding: 0;
     color: var(--down); cursor: pointer; text-decoration: underline;
@@ -574,6 +575,61 @@
   .mention-note .ok   { color: var(--up); }
   .mention-note .warn { color: var(--down); font-weight: 700; }
   .mention-note .off  { color: var(--ink-muted); }
+
+  /* ---- 캡처 (Ctrl+V) ---- */
+  .shot-strip {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin: 8px 0 0;
+  }
+  .shot-strip:empty { margin: 0; }
+  .shot {
+    position: relative; width: 62px; height: 62px; flex: none;
+    border: 1px solid var(--border); border-radius: var(--r-badge);
+    overflow: hidden; background: var(--ivory);
+    padding: 0; cursor: pointer;
+  }
+  .shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .shot.pending {
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: var(--ink-muted); cursor: default;
+  }
+  .shot.bad { border-color: var(--down); color: var(--down); }
+  .shot-x {
+    position: absolute; top: 2px; right: 2px;
+    width: 18px; height: 18px; line-height: 1;
+    font: inherit; font-size: 11px; cursor: pointer;
+    background: var(--card); color: var(--down);
+    border: 1px solid var(--border); border-radius: var(--r-badge);
+    padding: 0;
+  }
+  /* 목록 안 썸네일은 조금 더 작게 */
+  .memo-body + .shot-strip .shot,
+  .memo-shots .shot { width: 52px; height: 52px; }
+
+  /* ---- 크게 보기 ---- */
+  .shot-view {
+    padding: 0; max-width: none; max-height: none;
+    width: min(92vw, 1100px); height: auto;
+    background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--r-modal);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .shot-view[open] { display: flex; flex-direction: column; }
+  .shot-view::backdrop { background: rgba(28, 49, 96, .62); }
+  .shot-view-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-bottom: 1px solid var(--line); flex: none;
+  }
+  .shot-view-who { font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
+  .shot-view-head .btn { margin-left: auto; padding: 6px 11px; font-size: 13px; }
+  .shot-view-body {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ivory); padding: 10px; min-height: 0;
+  }
+  .shot-view-body img {
+    max-width: 100%; max-height: calc(90vh - 90px);
+    object-fit: contain; display: block;
+  }
 
   /* ---- 알림함 (머리말 오른쪽) ---- */
   .bell-wrap { position: relative; }
@@ -1441,6 +1497,11 @@ function wireFunctionBox() {
 var Drawer = (function () {
   var T_MEMO  = 'elaina_memos';
   var T_REPLY = 'elaina_memo_replies';
+  var BUCKET  = 'elaina-memo';     // 비공개. 볼 때마다 서명 URL 을 새로 만든다
+  var MAX_MB  = 5;
+
+  var pendMemo  = [];   // 아직 안 남긴 캡처 { path }
+  var pendReply = [];
 
   var dlg    = null;    // 팝업은 한 번만 만든다
   var ui     = {};
@@ -1546,9 +1607,11 @@ var Drawer = (function () {
     var mHost   = h('div', 'mention-host');
     ui.memoPop  = h('div', 'mention-pop'); ui.memoPop.hidden = true;
     ui.memoText = h('textarea');
-    ui.memoText.placeholder = '이 표를 보고 내린 판단을 남기세요. @ 를 치면 팀 사람 목록이 뜹니다.';
+    ui.memoText.placeholder =
+      '이 표를 보고 내린 판단을 남기세요. @ 를 치면 팀 사람 목록이 뜨고, 캡처는 Ctrl+V 로 바로 붙습니다.';
     ui.memoText.setAttribute('aria-label', '새 메모');
     mHost.appendChild(ui.memoPop); mHost.appendChild(ui.memoText);
+    ui.memoShots = h('div', 'shot-strip');
     ui.memoNote = h('div', 'mention-note');
     ui.memoMsg  = h('p', 'drawer-msg');
     ui.memoSend = h('button', 'btn btn-primary', '남기기');
@@ -1556,6 +1619,7 @@ var Drawer = (function () {
     var la = h('div', 'drawer-actions');
     la.appendChild(ui.memoSend); la.appendChild(ui.memoMsg);
     ui.memoForm.appendChild(mHost);
+    ui.memoForm.appendChild(ui.memoShots);
     ui.memoForm.appendChild(ui.memoNote);
     ui.memoForm.appendChild(la);
     left.appendChild(lh); left.appendChild(ui.memos); left.appendChild(ui.memoForm);
@@ -1569,9 +1633,10 @@ var Drawer = (function () {
     var rHost    = h('div', 'mention-host');
     ui.replyPop  = h('div', 'mention-pop'); ui.replyPop.hidden = true;
     ui.replyText = h('textarea');
-    ui.replyText.placeholder = '답글을 남기세요. @ 로 사람을 부를 수 있습니다.';
+    ui.replyText.placeholder = '답글을 남기세요. @ 로 부르고, 캡처는 Ctrl+V 로 붙입니다.';
     ui.replyText.setAttribute('aria-label', '새 답글');
     rHost.appendChild(ui.replyPop); rHost.appendChild(ui.replyText);
+    ui.replyShots = h('div', 'shot-strip');
     ui.replyNote = h('div', 'mention-note');
     ui.replyMsg  = h('p', 'drawer-msg');
     ui.replySend = h('button', 'btn btn-primary', '답글 남기기');
@@ -1579,6 +1644,7 @@ var Drawer = (function () {
     var ra = h('div', 'drawer-actions');
     ra.appendChild(ui.replySend); ra.appendChild(ui.replyMsg);
     ui.replyForm.appendChild(rHost);
+    ui.replyForm.appendChild(ui.replyShots);
     ui.replyForm.appendChild(ui.replyNote);
     ui.replyForm.appendChild(ra);
     right.appendChild(ui.replyHead); right.appendChild(ui.replies); right.appendChild(ui.replyForm);
@@ -1592,6 +1658,9 @@ var Drawer = (function () {
 
     wireMention(ui.memoText,  ui.memoPop,  ui.memoNote);
     wireMention(ui.replyText, ui.replyPop, ui.replyNote);
+
+    wirePaste(ui.memoText,  ui.memoShots,  pendMemo);
+    wirePaste(ui.replyText, ui.replyShots, pendReply);
   }
 
   /* ---- 명단 (@ 후보) — 이 화면을 볼 수 있는 사람만 -------------- */
@@ -1735,6 +1804,180 @@ var Drawer = (function () {
     });
   }
 
+  /* ---- 캡처 (Ctrl+V) -------------------------------------------- *
+   *  파일 이름은 맞힐 수 없게 무작위로 짓는다. 버킷은 비공개이고
+   *  8일차 권한(elaina_can_view)까지 정책에 들어 있으므로, 경로를 알아도
+   *  명단 밖 사람은 서명 URL 조차 받을 수 없다.
+   *  올린 사람·시각은 storage.objects 의 owner / created_at 에 남는다.
+   * --------------------------------------------------------------- */
+  function randomName(mime) {
+    var ext = String(mime || '').split('/')[1] || 'png';
+    if (ext === 'jpeg') ext = 'jpg';
+    ext = ext.replace(/[^a-z0-9]/gi, '').slice(0, 5) || 'png';
+    var id;
+    try { id = crypto.randomUUID().replace(/-/g, ''); }
+    catch (e) {
+      var a = new Uint8Array(16);
+      (crypto.getRandomValues ? crypto : window.msCrypto).getRandomValues(a);
+      id = Array.prototype.map.call(a, function (b) {
+        return ('0' + b.toString(16)).slice(-2);
+      }).join('');
+    }
+    return id + '.' + ext;
+  }
+
+  /* 비공개 버킷이라 <img src> 로 바로 못 쓴다. 짧게 사는 주소를 그때그때 만든다. */
+  function signPaths(paths) {
+    var want = (paths || []).filter(Boolean);
+    if (!want.length) return Promise.resolve({});
+    return Promise.resolve(CLIENT.storage.from(BUCKET).createSignedUrls(want, 600))
+      .then(function (res) {
+        var map = {};
+        (res.data || []).forEach(function (r) {
+          if (r && r.signedUrl && !r.error) map[r.path] = r.signedUrl;
+        });
+        return map;
+      })
+      .catch(function () { return {}; });
+  }
+
+  /* 목록·답글에 붙는 썸네일. 누르면 크게 본다. */
+  function shotStrip(paths) {
+    var strip = h('div', 'shot-strip memo-shots');
+    if (!paths || !paths.length) return strip;
+    paths.forEach(function (p) {
+      var b = h('button', 'shot');
+      b.type = 'button';
+      b.setAttribute('aria-label', '캡처 크게 보기');
+      var img = document.createElement('img');
+      img.alt = '붙여넣은 캡처';
+      img.loading = 'lazy';
+      b.appendChild(img);
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        bigView(p);
+      });
+      strip.appendChild(b);
+      strip.setAttribute('data-paths', '1');
+    });
+    signPaths(paths).then(function (map) {
+      var imgs = strip.querySelectorAll('img');
+      paths.forEach(function (p, i) {
+        if (map[p] && imgs[i]) imgs[i].src = map[p];
+      });
+    });
+    return strip;
+  }
+
+  /* ---- 크게 보기 (서랍 위에 한 겹 더) ---- */
+  var viewDlg = null, viewUi = {};
+  function bigView(path) {
+    if (!viewDlg) {
+      viewDlg = h('dialog', 'shot-view');
+      var head = h('div', 'shot-view-head');
+      viewUi.who = h('span', 'shot-view-who', '');
+      var x = h('button', 'btn btn-ghost', '닫기');
+      x.type = 'button';
+      x.addEventListener('click', function () { viewDlg.close(); });
+      head.appendChild(viewUi.who); head.appendChild(x);
+      var body = h('div', 'shot-view-body');
+      viewUi.img = document.createElement('img');
+      viewUi.img.alt = '캡처 크게 보기';
+      body.appendChild(viewUi.img);
+      viewDlg.appendChild(head); viewDlg.appendChild(body);
+      document.body.appendChild(viewDlg);
+    }
+    viewUi.img.removeAttribute('src');
+    viewUi.who.textContent = '불러오는 중…';
+    if (!viewDlg.open) viewDlg.showModal();
+
+    signPaths([path]).then(function (map) {
+      if (map[path]) viewUi.img.src = map[path];
+      else viewUi.who.textContent = '이 캡처를 볼 권한이 없습니다.';
+    });
+
+    /* 올린 사람·시각 — storage.objects 에 남아 있는 값을 그대로 읽는다 */
+    Promise.resolve(
+      CLIENT.storage.from(BUCKET).list('', { search: path, limit: 1 })
+    ).then(function (res) {
+      var f = res && res.data && res.data[0];
+      var at = f && (f.created_at || (f.metadata && f.metadata.lastModified));
+      viewUi.who.textContent = at ? ('올린 시각 ' + when(at)) : '';
+    }).catch(function () { viewUi.who.textContent = ''; });
+  }
+
+  /* ---- 붙여넣기 → 올리기 ---- */
+  function wirePaste(ta, strip, bag) {
+    ta.addEventListener('paste', function (e) {
+      var items = (e.clipboardData && e.clipboardData.items) || [];
+      var files = [];
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file' && /^image\//.test(items[i].type)) {
+          var f = items[i].getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      if (!files.length) return;          // 글자 붙여넣기는 그대로 둔다
+      e.preventDefault();
+      files.forEach(function (f) { upload(f, strip, bag); });
+    });
+  }
+
+  function drawPending(strip, bag) {
+    strip.textContent = '';
+    bag.forEach(function (it, idx) {
+      var b = h('div', 'shot');
+      var img = document.createElement('img');
+      img.alt = '붙여넣은 캡처';
+      if (it.url) img.src = it.url;
+      b.appendChild(img);
+      var x = h('button', 'shot-x', '✕');
+      x.type = 'button';
+      x.title = '떼기';
+      x.setAttribute('aria-label', '캡처 떼기');
+      x.addEventListener('click', function () {
+        bag.splice(idx, 1);              // 표시에서만 뗀다. 올린 파일은 그대로 둔다
+        drawPending(strip, bag);
+      });
+      b.appendChild(x);
+      strip.appendChild(b);
+    });
+  }
+
+  function upload(file, strip, bag) {
+    if (file.size > MAX_MB * 1024 * 1024) {
+      var bad = h('div', 'shot pending bad', MAX_MB + 'MB 초과');
+      strip.appendChild(bad);
+      setTimeout(function () { bad.remove(); }, 2500);
+      return;
+    }
+    var mark = h('div', 'shot pending', '올리는 중…');
+    strip.appendChild(mark);
+
+    var path = randomName(file.type);
+    Promise.resolve(
+      CLIENT.storage.from(BUCKET).upload(path, file, {
+        contentType: file.type, upsert: false
+      })
+    ).then(function (res) {
+      if (res.error) throw res.error;
+      return signPaths([path]);
+    }).then(function (map) {
+      bag.push({ path: path, url: map[path] || '' });
+      drawPending(strip, bag);
+    }).catch(function (err) {
+      mark.remove();
+      var bad2 = h('div', 'shot pending bad', '실패');
+      bad2.title = describeError(err);
+      strip.appendChild(bad2);
+      setTimeout(function () { bad2.remove(); }, 3000);
+    });
+  }
+
+  function pathsOf(bag) {
+    return bag.map(function (x) { return x.path; });
+  }
+
   /* 서버가 돌려준 결과({notified,blocked,muted})를 같은 모양으로 바꾼다 */
   function outcomeRows(out) {
     var rows = [];
@@ -1787,6 +2030,8 @@ var Drawer = (function () {
     say(ui.memoMsg, ''); say(ui.replyMsg, '');
     ui.memoText.value = ''; ui.replyText.value = '';
     ui.memoNote.textContent = ''; ui.replyNote.textContent = '';
+    pendMemo = []; pendReply = [];
+    ui.memoShots.textContent = ''; ui.replyShots.textContent = '';
     ui.memos.textContent = '';
     ui.memos.appendChild(h('li', 'memo-empty', '불러오는 중…'));
     ui.replies.textContent = '';
@@ -1855,6 +2100,11 @@ var Drawer = (function () {
       open.addEventListener('click', function () { pick(m.id); });
       li.appendChild(open);
 
+      /* 썸네일은 고르기 버튼의 형제로 둔다 (버튼 중첩 금지) */
+      if (!m.deleted_at && m.image_paths && m.image_paths.length) {
+        li.appendChild(shotStrip(m.image_paths));
+      }
+
       if (!m.deleted_at && canRemove(m)) {
         var foot = h('div', 'memo-foot');
         var del = h('button', 'memo-del', '지우기');
@@ -1914,6 +2164,9 @@ var Drawer = (function () {
         if (r.deleted_at) body.textContent = '지워진 답글입니다.';
         else writeBody(body, r.body);
         card.appendChild(body);
+        if (!r.deleted_at && r.image_paths && r.image_paths.length) {
+          card.appendChild(shotStrip(r.image_paths));
+        }
         if (!r.deleted_at && canRemove(r)) {
           var foot = h('div', 'memo-foot');
           var del = h('button', 'memo-del', '지우기');
@@ -1942,8 +2195,11 @@ var Drawer = (function () {
   /* 저장·알림은 서버 함수(SECURITY DEFINER)가 한 번에 처리한다.
      누구에게 갔고 누가 못 받았는지도 서버 판정 그대로 받아 적는다. */
   function postMemo() {
-    var body = ui.memoText.value.trim();
-    if (!body) { say(ui.memoMsg, '내용을 적어 주세요.', 'bad'); return; }
+    var body  = ui.memoText.value.trim();
+    var shots = pathsOf(pendMemo);
+    if (!body && !shots.length) {
+      say(ui.memoMsg, '내용을 적거나 캡처를 붙여넣어 주세요.', 'bad'); return;
+    }
     busy(true, ui.memoSend, '남기는 중…', '남기기');
     say(ui.memoMsg, '');
 
@@ -1952,12 +2208,14 @@ var Drawer = (function () {
         p_target_type:  cur.type,
         p_target_id:    cur.id,
         p_target_label: cur.label || null,
-        p_body:         body
+        p_body:         body,
+        p_image_paths:  shots
       })
     ).then(function (res) {
       if (res.error) throw res.error;
       var out = res.data || {};
       ui.memoText.value = '';
+      pendMemo = []; ui.memoShots.textContent = '';
       var rows = outcomeRows(out);
       drawNote(ui.memoNote, rows, false);
       say(ui.memoMsg, rows.length ? '남겼습니다.' : '남겼습니다. 부른 사람은 없습니다.', 'ok');
@@ -1972,19 +2230,25 @@ var Drawer = (function () {
   }
 
   function postReply() {
-    var body = ui.replyText.value.trim();
+    var body  = ui.replyText.value.trim();
+    var shots = pathsOf(pendReply);
     if (!picked) { say(ui.replyMsg, '왼쪽에서 메모를 먼저 고르세요.', 'bad'); return; }
-    if (!body)   { say(ui.replyMsg, '내용을 적어 주세요.', 'bad'); return; }
+    if (!body && !shots.length) {
+      say(ui.replyMsg, '내용을 적거나 캡처를 붙여넣어 주세요.', 'bad'); return;
+    }
     var id = picked;
     busy(true, ui.replySend, '남기는 중…', '답글 남기기');
     say(ui.replyMsg, '');
 
     Promise.resolve(
-      CLIENT.rpc('elaina_post_reply', { p_memo_id: id, p_body: body })
+      CLIENT.rpc('elaina_post_reply', {
+        p_memo_id: id, p_body: body, p_image_paths: shots
+      })
     ).then(function (res) {
       if (res.error) throw res.error;
       var out = res.data || {};
       ui.replyText.value = '';
+      pendReply = []; ui.replyShots.textContent = '';
       var rows = outcomeRows(out);
       drawNote(ui.replyNote, rows, false);
       say(ui.replyMsg, rows.length ? '남겼습니다.' : '남겼습니다. 부른 사람은 없습니다.', 'ok');
