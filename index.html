@@ -395,6 +395,187 @@
   .admin-result.bad .admin-detail { color: var(--down); }
   .admin-note { font-size: 11px; color: var(--ink-muted); margin: 12px 0 0; line-height: 1.6; }
 
+  /* ---- 외부 API 함수 호출 ---- */
+  .btn-fn { padding: 10px 16px; font-size: 14px; }
+  .fn-out {
+    margin: 16px 0 0; padding: 12px;
+    background: var(--ivory);
+    border: 1px solid var(--border); border-radius: var(--r-control);
+    font-size: 12px; line-height: 1.55; color: var(--ink);
+    white-space: pre-wrap; word-break: break-word; overflow-x: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .fn-out[hidden] { display: none; }
+  .fn-out.bad { border-color: var(--down); color: var(--down); }
+  .fn-note { font-size: 11px; color: var(--ink-muted); margin: 12px 0 0; line-height: 1.6; }
+
+  /* ================================================================
+     서랍(메모) — 부품 하나. 새 색은 만들지 않고 위 토큰만 쓴다.
+     ================================================================ */
+
+  /* ---- 카드 머리: 제목 왼쪽, 서랍 버튼 오른쪽 ---- */
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px 16px; flex-wrap: wrap;
+  }
+  .drawer-btn { display: inline-flex; align-items: center; gap: 7px; }
+  .drawer-btn .badge { background: var(--blush); }
+  .drawer-btn[disabled] { opacity: .55; cursor: default; }
+
+  /* ---- 팝업 ---- */
+  .drawer {
+    width: min(1080px, calc(100vw - 32px));
+    max-width: none;
+    height: min(680px, calc(100vh - 56px));
+    max-height: none;
+    padding: 0;
+    background: var(--card);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: var(--r-modal);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .drawer[open] { display: flex; flex-direction: column; }
+  .drawer::backdrop { background: rgba(28, 49, 96, .38); }   /* 네이비 계열 */
+
+  .drawer-head {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 16px 18px 12px; border-bottom: 1px solid var(--line);
+    flex: none;
+  }
+  .drawer-head h2 { border-bottom: 0; padding-bottom: 0; }
+  .drawer-head .drawer-sub {
+    font-size: 12px; color: var(--ink-muted); margin: 4px 0 0;
+    overflow-wrap: anywhere;
+  }
+  .drawer-close {
+    margin-left: auto; flex: none;
+    padding: 6px 11px; font-size: 13px; line-height: 1.2;
+  }
+
+  /* ---- 두 칸: 왼쪽 메모 목록 / 오른쪽 답글 ---- */
+  .drawer-body {
+    display: grid; grid-template-columns: 1fr 1fr;
+    flex: 1 1 auto; min-height: 0;
+  }
+  .drawer-pane {
+    display: flex; flex-direction: column; min-height: 0;
+    padding: 14px 18px 16px;
+  }
+  .drawer-pane + .drawer-pane {
+    border-left: 1px solid var(--line);
+    background: var(--ivory);
+  }
+  .drawer-pane h3 {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 700; color: var(--navy);
+    margin: 0 0 10px; letter-spacing: -0.02em; flex: none;
+  }
+
+  .memo-list {
+    list-style: none; margin: 0 0 12px; padding: 0;
+    flex: 1 1 auto; overflow-y: auto; min-height: 0;
+  }
+  .memo-empty { font-size: 12px; color: var(--ink-muted); padding: 10px 0; }
+
+  /* 카드는 li, 그 안에 '고르기' 버튼과 '지우기' 버튼을 나란히 둔다.
+     버튼 안에 버튼을 넣지 않기 위해서다. */
+  .memo-card {
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--border); border-radius: var(--r-control);
+    margin-bottom: 8px; overflow: hidden;
+  }
+  .memo-card:hover { background: var(--blush); }
+  .memo-card[data-current="true"] {
+    border-color: var(--navy);
+    box-shadow: inset 3px 0 0 var(--pink);      /* 딥핑크는 선 강조 전용 */
+  }
+  .memo-card.is-deleted { color: var(--ink-muted); }
+  .memo-open {
+    display: block; width: 100%; text-align: left;
+    font: inherit; color: inherit; cursor: pointer;
+    background: none; border: 0; padding: 10px 12px;
+  }
+
+  /* 답글 쪽은 고를 수 없는 카드 */
+  .memo-row {
+    background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--r-control);
+    padding: 10px 12px; margin-bottom: 8px;
+  }
+
+  .memo-meta {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    font-size: 11px; color: var(--ink-muted); margin-bottom: 5px;
+  }
+  .memo-who { font-weight: 800; color: var(--navy); }
+  .memo-card.is-deleted .memo-who,
+  .memo-row.is-deleted .memo-who { color: var(--ink-muted); }
+  .memo-body {
+    font-size: 13px; line-height: 1.6; color: var(--ink);
+    white-space: pre-wrap; overflow-wrap: anywhere; margin: 0;
+  }
+  .memo-body .at {
+    color: var(--navy); font-weight: 800;
+    background: var(--blush); border-radius: var(--r-badge); padding: 0 4px;
+  }
+  .memo-foot {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    font-size: 11px; color: var(--ink-muted);
+  }
+  .memo-card .memo-foot { padding: 0 12px 10px; }
+  .memo-row  .memo-foot { margin-top: 7px; }
+  .memo-del {
+    font: inherit; font-size: 11px; background: none; border: 0; padding: 0;
+    color: var(--down); cursor: pointer; text-decoration: underline;
+  }
+
+  /* ---- 입력 ---- */
+  .drawer-form { flex: none; border-top: 1px solid var(--line); padding-top: 12px; }
+  .drawer-form[hidden] { display: none; }
+  .drawer-form textarea {
+    width: 100%; min-height: 68px; resize: vertical;
+    font: inherit; font-size: 13px; line-height: 1.6;
+    color: var(--navy); background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--r-control);
+    padding: 9px 11px;
+  }
+  .drawer-form textarea::placeholder { color: var(--ink-muted); }
+  .drawer-form textarea[disabled] { background: var(--ivory); }
+
+  .mention-chips {
+    display: flex; flex-wrap: wrap; gap: 5px;
+    margin-bottom: 8px; max-height: 58px; overflow-y: auto;
+  }
+  .mention-chip {
+    font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+    background: var(--card); color: var(--navy);
+    border: 1px solid var(--border); border-radius: var(--r-badge);
+    padding: 2px 7px;
+  }
+  .mention-chip:hover { background: var(--blush); }
+
+  .drawer-actions {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 9px; flex-wrap: wrap;
+  }
+  .drawer-actions .btn-primary { width: auto; padding: 8px 16px; font-size: 13px; }
+  .drawer-msg {
+    font-size: 11px; line-height: 1.5; color: var(--ink-muted);
+    margin: 0; overflow-wrap: anywhere;
+  }
+  .drawer-msg.bad { color: var(--down); }
+  .drawer-msg.ok  { color: var(--up); }
+
+  @media (max-width: 860px) {
+    .drawer { height: calc(100vh - 24px); width: calc(100vw - 20px); }
+    .drawer-body { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+    .drawer-pane + .drawer-pane {
+      border-left: 0; border-top: 1px solid var(--line);
+    }
+  }
+
   /* ---- 반응형: 860 / 480 ---- */
   @media (max-width: 860px) {
     .wrap { padding: 22px 14px 56px; }
@@ -494,7 +675,15 @@
     <section class="stats" id="stats" aria-label="요약"></section>
 
     <section class="card">
-      <h2>월별 상세 내역</h2>
+      <div class="card-head">
+        <h2>월별 상세 내역</h2>
+        <!-- 서랍 버튼. 대상은 JS 의 Drawer.attach 가 정한다 -->
+        <button type="button" class="btn btn-ghost drawer-btn" id="drawer-monthly" disabled>
+          <span aria-hidden="true">🗄</span>
+          <span>서랍</span>
+          <span class="badge" id="drawer-monthly-count" hidden>0</span>
+        </button>
+      </div>
       <p class="section-sub">송금월 기준 합산 · 1월부터 아래로 · 월을 누르면 거래처별로 펼쳐집니다</p>
       <div class="table-scroll">
         <table>
@@ -551,6 +740,22 @@
         <div class="tooltip" id="tooltip" role="status" aria-live="polite"></div>
       </div>
       <div class="legend" id="legend"></div>
+    </section>
+
+    <!-- 외부 API 자리 — 열쇠는 서버 환경변수에만 있고 여기로 내려오지 않는다 -->
+    <section class="card" id="fnBox">
+      <h2>외부 API 연결</h2>
+      <p class="section-sub">
+        Netlify Function 자리입니다. 열쇠는 서버 환경변수에서만 읽고, 이 페이지에는 담기지 않습니다.
+      </p>
+
+      <button type="button" class="btn btn-ghost btn-fn" id="fn-btn">함수 호출</button>
+      <pre class="fn-out" id="fn-out" hidden></pre>
+
+      <p class="fn-note" id="fn-note">
+        <code>/.netlify/functions/external-api</code> ·
+        배포된 사이트나 <code>netlify dev</code> 에서만 응답합니다.
+      </p>
     </section>
   </main>
 
@@ -756,6 +961,11 @@ function clearData() {
   var tip = el('tooltip'); if (tip) { tip.innerHTML = ''; tip.style.opacity = '0'; }
   var hint = el('scroll-hint'); if (hint) hint.hidden = true;
 
+  var fnOut = el('fn-out');               // 함수 응답도 남기지 않는다
+  if (fnOut) { fnOut.hidden = true; fnOut.textContent = ''; fnOut.className = 'fn-out'; }
+
+  Drawer.reset();                         // 서랍도 닫고 배지·명단을 버린다
+
   el('adminOnly').hidden = true;          // 로그아웃하면 관리자 영역도 닫는다
   el('admin-result').hidden = true;
   el('admin-count').textContent = '';
@@ -801,6 +1011,8 @@ function enterApp(user) {
 
   /* 소문자끼리 비교 — 내 계정이면 열고, 아니면 닫아 둔다 */
   el('adminOnly').hidden = !isAdmin(email);
+
+  Drawer.setUser(user);        // 서랍 배지는 로그인한 뒤에만 센다
 
   showLoading();
   loadData();
@@ -1086,6 +1298,516 @@ function wireAdmin() {
   });
 }
 
+/* ------------------------------------------------------------------ *
+ *  외부 API 함수 호출 — 응답 본문을 손대지 않고 그대로 보여준다
+ * ------------------------------------------------------------------ */
+var FN_URL = '/.netlify/functions/external-api';
+
+function wireFunctionBox() {
+  var btn = el('fn-btn');
+  var out = el('fn-out');
+
+  btn.addEventListener('click', function () {
+    btn.disabled = true;
+    btn.textContent = '부르는 중…';
+    out.className = 'fn-out';
+    out.textContent = '…';
+    out.hidden = false;
+
+    fetch(FN_URL, { headers: { Accept: 'application/json' }, cache: 'no-store' })
+      .then(function (r) {
+        return r.text().then(function (body) {      // 파싱하지 않고 원문 그대로
+          out.className = 'fn-out' + (r.ok ? '' : ' bad');
+          out.textContent = 'HTTP ' + r.status + (r.statusText ? ' ' + r.statusText : '') +
+                            '\n\n' + (body === '' ? '(본문 없음)' : body);
+        });
+      })
+      .catch(function (err) {
+        out.className = 'fn-out bad';
+        out.textContent = '함수를 부르지 못했습니다\n' +
+                          (err && err.message ? err.message : String(err)) +
+                          '\n\n' + window.location.origin + FN_URL;
+      })
+      .then(function () {
+        btn.disabled = false;
+        btn.textContent = '함수 호출';
+      });
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ *  서랍(메모) — 부품 하나
+ *
+ *    Drawer.attach(버튼, { type: 'table', id: 'monthly', label: '월별 상세 내역' })
+ *
+ *  버튼과 대상만 넘기면 배지 갱신·팝업 열기가 붙는다. 팝업 DOM 은 한 번만
+ *  만들어 재사용하므로 화면마다 새로 만들 필요가 없다. 다른 대상에 달려면
+ *  attach 를 한 줄 더 부르면 된다.
+ *
+ *  막는 일은 전부 DB 가 한다. 여기서 감추는 것은 편의일 뿐이다 —
+ *  작성자·작성시각은 트리거가 찍고, 본문은 고칠 수 없고, 지우기는
+ *  본인과 관리자만 되며, anon 은 권한 자체가 없다.
+ * ------------------------------------------------------------------ */
+var Drawer = (function () {
+  var T_MEMO  = 'elaina_memos';
+  var T_REPLY = 'elaina_memo_replies';
+
+  var dlg    = null;    // 팝업은 한 번만 만든다
+  var ui     = {};
+  var mounts = [];      // { btn, badge, target }
+  var me     = null;    // { id, email, admin }
+  var roster = null;    // [{ user_id, display_name }]
+  var cur    = null;    // 지금 열려 있는 대상
+  var memos  = [];
+  var picked = null;    // 고른 메모 id
+
+  function h(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function when(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var p = function (v) { return (v < 10 ? '0' : '') + v; };
+    return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' +
+           p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function nameOf(uid) {
+    var list = roster || [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].user_id === uid) return list[i].display_name;
+    }
+    return null;
+  }
+
+  /* 본문을 그린다. @이름 은 명단에 있는 것만 강조한다.
+     innerHTML 을 쓰지 않으므로 남이 쓴 글이 태그가 될 일이 없다. */
+  function writeBody(node, text) {
+    node.textContent = '';
+    var names = (roster || []).map(function (r) { return r.display_name; })
+      .sort(function (a, b) { return b.length - a.length; });   // 긴 이름 먼저
+    var i = 0;
+    while (i < text.length) {
+      var hit = null;
+      if (text.charAt(i) === '@') {
+        for (var k = 0; k < names.length; k++) {
+          if (text.substr(i + 1, names[k].length) === names[k]) { hit = names[k]; break; }
+        }
+      }
+      if (hit) {
+        node.appendChild(h('span', 'at', '@' + hit));
+        i += hit.length + 1;
+      } else {
+        var j = text.indexOf('@', i + 1);
+        if (j === -1) j = text.length;
+        node.appendChild(document.createTextNode(text.slice(i, j)));
+        i = j;
+      }
+    }
+  }
+
+  function say(node, text, kind) {
+    node.textContent = text || '';
+    node.className = 'drawer-msg' + (kind ? ' ' + kind : '');
+  }
+
+  /* ---- 팝업 한 번만 만들기 ------------------------------------- */
+  function build() {
+    if (dlg) return;
+    dlg = h('dialog', 'drawer');
+    dlg.id = 'drawer';
+    dlg.setAttribute('aria-labelledby', 'drawer-title');
+
+    var head = h('div', 'drawer-head');
+    var hbox = h('div');
+    ui.title = h('h2', null, '서랍');
+    ui.title.id = 'drawer-title';
+    ui.sub = h('p', 'drawer-sub');
+    hbox.appendChild(ui.title); hbox.appendChild(ui.sub);
+    var x = h('button', 'btn btn-ghost drawer-close', '닫기');
+    x.type = 'button';
+    x.addEventListener('click', function () { dlg.close(); });
+    head.appendChild(hbox); head.appendChild(x);
+
+    var body = h('div', 'drawer-body');
+
+    /* 왼쪽 — 메모 목록 */
+    var left = h('section', 'drawer-pane');
+    left.setAttribute('aria-label', '메모 목록');
+    var lh = h('h3', null, '메모');
+    ui.count = h('span', 'badge', '0');
+    lh.appendChild(ui.count);
+    ui.memos = h('ul', 'memo-list');
+    ui.memoForm  = h('form', 'drawer-form');
+    ui.memoChips = h('div', 'mention-chips');
+    ui.memoText  = h('textarea');
+    ui.memoText.placeholder = '이 표를 보고 내린 판단을 남기세요. 위 이름을 눌러 @로 부를 수 있습니다.';
+    ui.memoText.setAttribute('aria-label', '새 메모');
+    ui.memoMsg  = h('p', 'drawer-msg');
+    ui.memoSend = h('button', 'btn btn-primary', '남기기');
+    ui.memoSend.type = 'submit';
+    var la = h('div', 'drawer-actions');
+    la.appendChild(ui.memoSend); la.appendChild(ui.memoMsg);
+    ui.memoForm.appendChild(ui.memoChips);
+    ui.memoForm.appendChild(ui.memoText);
+    ui.memoForm.appendChild(la);
+    left.appendChild(lh); left.appendChild(ui.memos); left.appendChild(ui.memoForm);
+
+    /* 오른쪽 — 고른 메모의 답글 */
+    var right = h('section', 'drawer-pane');
+    right.setAttribute('aria-label', '답글');
+    ui.replyHead = h('h3', null, '답글');
+    ui.replies = h('ul', 'memo-list');
+    ui.replyForm  = h('form', 'drawer-form');
+    ui.replyChips = h('div', 'mention-chips');
+    ui.replyText  = h('textarea');
+    ui.replyText.placeholder = '답글을 남기세요.';
+    ui.replyText.setAttribute('aria-label', '새 답글');
+    ui.replyMsg  = h('p', 'drawer-msg');
+    ui.replySend = h('button', 'btn btn-primary', '답글 남기기');
+    ui.replySend.type = 'submit';
+    var ra = h('div', 'drawer-actions');
+    ra.appendChild(ui.replySend); ra.appendChild(ui.replyMsg);
+    ui.replyForm.appendChild(ui.replyChips);
+    ui.replyForm.appendChild(ui.replyText);
+    ui.replyForm.appendChild(ra);
+    right.appendChild(ui.replyHead); right.appendChild(ui.replies); right.appendChild(ui.replyForm);
+
+    body.appendChild(left); body.appendChild(right);
+    dlg.appendChild(head); dlg.appendChild(body);
+    document.body.appendChild(dlg);
+
+    ui.memoForm.addEventListener('submit', function (e) { e.preventDefault(); postMemo(); });
+    ui.replyForm.addEventListener('submit', function (e) { e.preventDefault(); postReply(); });
+  }
+
+  /* ---- 명단 (@ 후보) ------------------------------------------- */
+  function loadRoster() {
+    if (roster) return Promise.resolve(roster);
+    return Promise.resolve(CLIENT.rpc('elaina_mention_list'))
+      .then(function (res) {
+        roster = (res && !res.error && res.data) ? res.data : [];
+        return roster;
+      })
+      .catch(function () { roster = []; return roster; });
+  }
+
+  function drawChips(box, target) {
+    box.textContent = '';
+    (roster || []).forEach(function (r) {
+      if (me && r.user_id === me.id) return;          // 나 자신은 부르지 않는다
+      var c = h('button', 'mention-chip', '@' + r.display_name);
+      c.type = 'button';
+      c.addEventListener('click', function () {
+        var v = target.value;
+        target.value = v + (v && !/\s$/.test(v) ? ' ' : '') + '@' + r.display_name + ' ';
+        target.focus();
+      });
+      box.appendChild(c);
+    });
+  }
+
+  /* ---- 배지 ----------------------------------------------------- */
+  function refresh() {
+    if (!CLIENT || !me || !mounts.length) return Promise.resolve();
+
+    /* 건수를 못 세더라도 서랍은 열려야 한다. 여는 것과 배지는 별개다. */
+    mounts.forEach(function (m) { m.btn.disabled = false; });
+
+    var byType = {};
+    mounts.forEach(function (m) {
+      (byType[m.target.type] = byType[m.target.type] || []).push(m.target.id);
+    });
+    var jobs = Object.keys(byType).map(function (type) {
+      return Promise.resolve(
+        CLIENT.rpc('elaina_memo_counts', { p_target_type: type, p_target_ids: byType[type] })
+      ).then(function (res) {
+        var got = {};
+        if (res && !res.error && res.data) {
+          res.data.forEach(function (row) { got[row.target_id] = Number(row.memo_count) || 0; });
+        }
+        mounts.forEach(function (m) {
+          if (m.target.type !== type) return;
+          var n = got[m.target.id] || 0;
+          m.badge.textContent = String(n);
+          m.badge.hidden = (n === 0);
+          m.btn.disabled = false;
+        });
+      });
+    });
+    return Promise.all(jobs).catch(function () {});
+  }
+
+  /* ---- 열기 ----------------------------------------------------- */
+  function open(target) {
+    build();
+    cur = target;
+    picked = null;
+    memos = [];
+    ui.title.textContent = '🗄 ' + (target.label || target.id) + ' 서랍';
+    ui.sub.textContent = '대상 ' + target.type + ' · ' + target.id +
+                         ' — 남긴 뒤에는 본문을 고칠 수 없습니다.';
+    say(ui.memoMsg, ''); say(ui.replyMsg, '');
+    ui.memoText.value = ''; ui.replyText.value = '';
+    ui.memos.textContent = '';
+    ui.memos.appendChild(h('li', 'memo-empty', '불러오는 중…'));
+    ui.replies.textContent = '';
+    ui.replyForm.hidden = true;
+    ui.replyHead.textContent = '답글';
+
+    if (!dlg.open) dlg.showModal();
+
+    loadRoster()
+      .then(function () {
+        drawChips(ui.memoChips, ui.memoText);
+        drawChips(ui.replyChips, ui.replyText);
+        return loadMemos();
+      });
+  }
+
+  function loadMemos() {
+    return Promise.resolve(
+      CLIENT.from(T_MEMO).select('*')
+        .eq('target_type', cur.type).eq('target_id', cur.id)
+        .order('created_at', { ascending: false })
+    ).then(function (res) {
+      if (res.error) throw res.error;
+      memos = res.data || [];
+      drawMemos();
+    }).catch(function (err) {
+      ui.memos.textContent = '';
+      ui.memos.appendChild(h('li', 'memo-empty', '메모를 불러오지 못했습니다: ' + describeError(err)));
+    });
+  }
+
+  function drawMemos() {
+    var live = memos.filter(function (m) { return !m.deleted_at; }).length;
+    ui.count.textContent = String(live);
+    ui.memos.textContent = '';
+
+    if (!memos.length) {
+      ui.memos.appendChild(h('li', 'memo-empty',
+        '아직 메모가 없습니다. 첫 판단을 남겨 보세요.'));
+      return;
+    }
+
+    memos.forEach(function (m) {
+      var isPicked = String(m.id) === String(picked);
+      var li = h('li', 'memo-card' + (m.deleted_at ? ' is-deleted' : ''));
+      li.setAttribute('data-current', isPicked ? 'true' : 'false');
+
+      /* 카드를 고르는 버튼. 지우기 버튼과 형제로 둔다 (버튼 중첩 금지) */
+      var open = h('button', 'memo-open');
+      open.type = 'button';
+      open.setAttribute('aria-current', isPicked ? 'true' : 'false');
+
+      var meta = h('div', 'memo-meta');
+      meta.appendChild(h('span', 'memo-who',
+        nameOf(m.author_id) || (m.author_email || '').split('@')[0] || '알 수 없음'));
+      meta.appendChild(h('span', null, when(m.created_at)));
+      open.appendChild(meta);
+
+      var body = h('p', 'memo-body');
+      if (m.deleted_at) body.textContent = '지워진 메모입니다.';
+      else writeBody(body, m.body);
+      open.appendChild(body);
+
+      open.addEventListener('click', function () { pick(m.id); });
+      li.appendChild(open);
+
+      if (!m.deleted_at && canRemove(m)) {
+        var foot = h('div', 'memo-foot');
+        var del = h('button', 'memo-del', '지우기');
+        del.type = 'button';
+        del.addEventListener('click', function () { remove(T_MEMO, m.id, loadMemos); });
+        foot.appendChild(del);
+        li.appendChild(foot);
+      }
+
+      ui.memos.appendChild(li);
+    });
+  }
+
+  function canRemove(row) {
+    return !!me && (row.author_id === me.id || me.admin);
+  }
+
+  /* ---- 오른쪽: 고른 메모의 답글 --------------------------------- */
+  function pick(id) {
+    picked = id;
+    drawMemos();
+    ui.replyHead.textContent = '답글';
+    ui.replies.textContent = '';
+    ui.replies.appendChild(h('li', 'memo-empty', '불러오는 중…'));
+    say(ui.replyMsg, '');
+    ui.replyText.value = '';
+
+    var chosen = memos.filter(function (m) { return String(m.id) === String(id); })[0];
+    ui.replyForm.hidden = !!(chosen && chosen.deleted_at);   // 지워진 메모엔 답글 금지
+    loadReplies(id);
+  }
+
+  function loadReplies(id) {
+    return Promise.resolve(
+      CLIENT.from(T_REPLY).select('*').eq('memo_id', id)
+        .order('created_at', { ascending: true })
+    ).then(function (res) {
+      if (res.error) throw res.error;
+      if (String(picked) !== String(id)) return;      // 그새 다른 메모를 골랐다
+      var rows = res.data || [];
+      ui.replyHead.textContent = '답글 ' +
+        rows.filter(function (r) { return !r.deleted_at; }).length + '건';
+      ui.replies.textContent = '';
+      if (!rows.length) {
+        ui.replies.appendChild(h('li', 'memo-empty', '아직 답글이 없습니다.'));
+        return;
+      }
+      rows.forEach(function (r) {
+        var li = h('li');
+        var card = h('div', 'memo-row' + (r.deleted_at ? ' is-deleted' : ''));
+        var meta = h('div', 'memo-meta');
+        meta.appendChild(h('span', 'memo-who',
+          nameOf(r.author_id) || (r.author_email || '').split('@')[0] || '알 수 없음'));
+        meta.appendChild(h('span', null, when(r.created_at)));
+        card.appendChild(meta);
+        var body = h('p', 'memo-body');
+        if (r.deleted_at) body.textContent = '지워진 답글입니다.';
+        else writeBody(body, r.body);
+        card.appendChild(body);
+        if (!r.deleted_at && canRemove(r)) {
+          var foot = h('div', 'memo-foot');
+          var del = h('button', 'memo-del', '지우기');
+          del.type = 'button';
+          del.addEventListener('click', function () {
+            remove(T_REPLY, r.id, function () { return loadReplies(id); });
+          });
+          foot.appendChild(del);
+          card.appendChild(foot);
+        }
+        li.appendChild(card);
+        ui.replies.appendChild(li);
+      });
+    }).catch(function (err) {
+      ui.replies.textContent = '';
+      ui.replies.appendChild(h('li', 'memo-empty', '답글을 불러오지 못했습니다: ' + describeError(err)));
+    });
+  }
+
+  /* ---- 남기기 --------------------------------------------------- */
+  /* 누구에게 알림이 갔는지는 서버가 계산한 mention_ids 로만 말한다.
+     화면이 짐작해서 말하지 않는다. */
+  function toldWho(ids) {
+    var names = (ids || [])
+      .filter(function (id) { return !me || id !== me.id; })
+      .map(function (id) { return nameOf(id); })
+      .filter(Boolean);
+    return names.length ? '→ ' + names.join(', ') + '님에게 알림이 갔습니다.' : '';
+  }
+
+  function busy(on, btn, text, idleText) {
+    btn.disabled = on;
+    btn.textContent = on ? text : idleText;
+  }
+
+  function postMemo() {
+    var body = ui.memoText.value.trim();
+    if (!body) { say(ui.memoMsg, '내용을 적어 주세요.', 'bad'); return; }
+    busy(true, ui.memoSend, '남기는 중…', '남기기');
+    say(ui.memoMsg, '');
+
+    Promise.resolve(
+      CLIENT.from(T_MEMO).insert({
+        target_type:  cur.type,
+        target_id:    cur.id,
+        target_label: cur.label || null,
+        body:         body
+      }).select('id, mention_ids').single()
+    ).then(function (res) {
+      if (res.error) throw res.error;
+      ui.memoText.value = '';
+      say(ui.memoMsg, ('남겼습니다. ' + toldWho(res.data && res.data.mention_ids)).trim(), 'ok');
+      return loadMemos().then(refresh);
+    }).catch(function (err) {
+      say(ui.memoMsg, '남기지 못했습니다: ' + describeError(err), 'bad');
+    }).then(function () {
+      busy(false, ui.memoSend, '', '남기기');
+    });
+  }
+
+  function postReply() {
+    var body = ui.replyText.value.trim();
+    if (!picked) { say(ui.replyMsg, '왼쪽에서 메모를 먼저 고르세요.', 'bad'); return; }
+    if (!body)   { say(ui.replyMsg, '내용을 적어 주세요.', 'bad'); return; }
+    var id = picked;
+    busy(true, ui.replySend, '남기는 중…', '답글 남기기');
+    say(ui.replyMsg, '');
+
+    Promise.resolve(
+      CLIENT.from(T_REPLY).insert({ memo_id: id, body: body })
+        .select('id, mention_ids').single()
+    ).then(function (res) {
+      if (res.error) throw res.error;
+      ui.replyText.value = '';
+      say(ui.replyMsg, ('남겼습니다. ' + toldWho(res.data && res.data.mention_ids)).trim(), 'ok');
+      return loadReplies(id);
+    }).catch(function (err) {
+      say(ui.replyMsg, '남기지 못했습니다: ' + describeError(err), 'bad');
+    }).then(function () {
+      busy(false, ui.replySend, '', '답글 남기기');
+    });
+  }
+
+  /* 진짜 삭제가 아니다. deleted_at 을 찍는 UPDATE 다.
+     보내는 시각은 무시되고 서버가 now() 로 덮어쓴다. */
+  function remove(table, id, after) {
+    if (!window.confirm('지우면 내용은 보이지 않게 됩니다. 기록 자체는 남습니다. 계속할까요?')) return;
+    Promise.resolve(
+      CLIENT.from(table).update({ deleted_at: new Date().toISOString() })
+        .eq('id', id).select('id').single()
+    ).then(function (res) {
+      if (res.error) throw res.error;
+      return Promise.resolve(after()).then(refresh);
+    }).catch(function (err) {
+      say(table === T_MEMO ? ui.memoMsg : ui.replyMsg,
+          '지우지 못했습니다: ' + describeError(err), 'bad');
+    });
+  }
+
+  /* ---- 바깥에서 쓰는 것 ----------------------------------------- */
+  return {
+    attach: function (btn, target) {
+      if (!btn) return;
+      var badge = document.getElementById(btn.id + '-count');
+      mounts.push({ btn: btn, badge: badge, target: target });
+      btn.addEventListener('click', function () { open(target); });
+    },
+    setUser: function (user) {
+      me = user ? { id: user.id, email: normEmail(user.email), admin: isAdmin(user.email) } : null;
+      roster = null;                      // 사람이 바뀌면 명단도 다시 받는다
+      return refresh();
+    },
+    reset: function () {
+      me = null; roster = null; cur = null; memos = []; picked = null;
+      if (dlg && dlg.open) dlg.close();
+      mounts.forEach(function (m) {
+        m.btn.disabled = true;
+        if (m.badge) { m.badge.hidden = true; m.badge.textContent = '0'; }
+      });
+    },
+    refresh: refresh
+  };
+})();
+
+function wireDrawer() {
+  /* 부품 하나를 대상 하나에 단다. 다른 곳에 달려면 이 줄을 하나 더 쓴다. */
+  Drawer.attach(el('drawer-monthly'),
+                { type: 'table', id: 'monthly', label: '월별 상세 내역' });
+}
+
 function boot() {
   OAUTH_ERROR = readOAuthError();     // supabase-js 가 주소를 지우기 전에 먼저 읽는다
 
@@ -1108,6 +1830,8 @@ function boot() {
 
       wireAuthUi();
       wireAdmin();
+      wireFunctionBox();
+      wireDrawer();
 
       CLIENT.auth.onAuthStateChange(function (event, session) {
         if (event === 'SIGNED_OUT') { enterLogin(); return; }

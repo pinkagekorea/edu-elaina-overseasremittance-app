@@ -88,7 +88,7 @@
 | `elaina_is_admin()` | invoker | JWT 이메일이 관리자인가 |
 | `elaina_can_view(uuid)` | **definer** | 명단에 있는가. 정책이 자기 자신을 부르는 재귀를 피하려면 definer 라야 한다 |
 | `elaina_called_ids(text)` | definer | 본문에서 부른 사람의 uuid 목록 |
-| `elaina_stamp()` | invoker 트리거 | 작성자·작성시각 고정, 본문 되돌리기, 삭제 표시만 허용 |
+| `elaina_stamp()` | **definer** 트리거 | 작성자·작성시각 고정, 본문 되돌리기, 삭제 표시만 허용. `elaina_called_ids()` 를 부르므로 definer 라야 한다 (invoker 로 두었다가 실제로 막혀서 고침) |
 | `elaina_fanout()` | definer 트리거 | 멘션 기록 + 알림 생성 |
 | `elaina_notification_guard()` | invoker 트리거 | `read_at` 외 전부 되돌린다 |
 | `elaina_mention_list()` | definer | @ 자동완성용 이름 목록 (명단에 있는 사람에게만) |
