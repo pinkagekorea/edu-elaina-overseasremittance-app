@@ -13,6 +13,10 @@
 //     channel 그렇지 않고 웹훅이 있을 때        → 채널로만
 //     bell    둘 다 없을 때                     → 아무 것도 안 보냄
 //
+//   나 자신을 부른 경우는 인앱 벨이 울리지 않는다(설계). 대신 채널
+//   heads-up 만 보낸다 — 웹훅이 살아 있는지 확인하는 통로다. 짝이
+//   맞아 있어도 DM 으로는 보내지 않는다.
+//
 //   화면이 보낸 내용을 그대로 쏘지 않는다. 메모 번호만 받고 본문·
 //   받는 사람은 DB 에서 다시 읽는다. 그래서 남의 이름으로 보내거나
 //   내용을 바꿔치기할 수 없다.
@@ -61,25 +65,57 @@ Deno.serve(async (req: Request) => {
 
   // 이 글을 쓴 사람만 자기 호출을 내보낼 수 있다
   const src = replyId != null
-    ? await db.from("elaina_memo_replies").select("id, author_id, memo_id").eq("id", replyId).maybeSingle()
-    : await db.from("elaina_memos").select("id, author_id").eq("id", memoId).maybeSingle();
+    ? await db.from("elaina_memo_replies")
+        .select("id, author_id, memo_id, body, mention_ids").eq("id", replyId).maybeSingle()
+    : await db.from("elaina_memos")
+        .select("id, author_id, body, mention_ids, target_type, target_id, target_label")
+        .eq("id", memoId).maybeSingle();
   if (src.error || !src.data) return json({ error: "그런 글이 없습니다." }, 404);
   if (src.data.author_id !== me.id) return json({ error: "본인이 쓴 글만 보낼 수 있습니다." }, 403);
 
-  // 이 글로 생긴 알림 = 보낼 대상. 내용도 여기서 읽는다.
-  const q = db.from("elaina_notifications").select("*").eq("actor_id", me.id);
-  const notes = replyId != null ? await q.eq("reply_id", replyId) : await q.eq("memo_id", memoId).is("reply_id", null);
-  if (notes.error) return json({ error: notes.error.message }, 500);
-  const rows = notes.data ?? [];
+  // 답글이면 대상 정보는 부모 메모에서 가져온다
+  let target = {
+    type: (src.data as Record<string, string>).target_type ?? "",
+    id: (src.data as Record<string, string>).target_id ?? "",
+    label: (src.data as Record<string, string>).target_label ?? "",
+    memoId: replyId != null ? (src.data as Record<string, number>).memo_id : memoId,
+  };
+  if (replyId != null) {
+    const parent = await db.from("elaina_memos")
+      .select("target_type, target_id, target_label").eq("id", target.memoId).maybeSingle();
+    target = { ...target,
+      type: parent.data?.target_type ?? "",
+      id: parent.data?.target_id ?? "",
+      label: parent.data?.target_label ?? "" };
+  }
 
   const token = (Deno.env.get("ELAINA_SLACK_BOT_TOKEN") ?? "").trim();
   const hook = (Deno.env.get("ELAINA_SLACK_WEBHOOK_URL") ?? "").trim();
   let base = (Deno.env.get("ELAINA_APP_BASE_URL") ?? "").trim();
   if (base && !/^https?:\/\/[^/]+\//.test(base)) base += "/";
 
+  function deepLink() {
+    return base
+      ? `\n<${base}?t=${encodeURIComponent(target.type)}&id=${encodeURIComponent(target.id)}&drawer=1&memo=${target.memoId}|→ 그 메모 열기>`
+      : "";
+  }
+  async function toChannel(text: string) {
+    const r = await fetch(hook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    return r.ok ? null : `채널 실패: ${r.status}`;
+  }
+
   const results: Array<{ name: string; tier: string; detail?: string }> = [];
 
-  for (const n of rows) {
+  // ── 남을 부른 경우 — 알림 행이 대상이다 ─────────────────────
+  const q = db.from("elaina_notifications").select("*").eq("actor_id", me.id);
+  const notes = replyId != null ? await q.eq("reply_id", replyId) : await q.eq("memo_id", memoId).is("reply_id", null);
+  if (notes.error) return json({ error: notes.error.message }, 500);
+
+  for (const n of notes.data ?? []) {
     // 이미 내보낸 건은 건너뛴다 (두 번 눌러도 두 번 가지 않는다)
     const seen = await db.from("elaina_slack_deliveries")
       .select("id").eq("notification_id", n.id).maybeSingle();
@@ -89,13 +125,10 @@ Deno.serve(async (req: Request) => {
       .select("display_name").eq("user_id", n.recipient_id).maybeSingle();
     const name = to.data?.display_name ?? "알 수 없음";
 
-    const link = base
-      ? `\n<${base}?t=${encodeURIComponent(n.target_type)}&id=${encodeURIComponent(n.target_id)}&drawer=1&memo=${n.memo_id}|→ 그 메모 열기>`
-      : "";
     const head = n.kind === "reply"
       ? `*${n.actor_name ?? "누군가"}* 님이 *${name}* 님의 메모에 답글을 남겼습니다`
       : `*${n.actor_name ?? "누군가"}* 님이 *${name}* 님을 불렀습니다`;
-    const text = `🗄 서랍 · ${n.target_label ?? n.target_id}\n${head}\n>${(n.excerpt ?? "").replace(/\n/g, "\n>")}${link}`;
+    const text = `🗄 서랍 · ${n.target_label ?? n.target_id}\n${head}\n>${(n.excerpt ?? "").replace(/\n/g, "\n>")}${deepLink()}`;
 
     const slack = await db.from("elaina_slack_links")
       .select("slack_user_id").eq("user_id", n.recipient_id).maybeSingle();
@@ -118,25 +151,16 @@ Deno.serve(async (req: Request) => {
         else {
           detail = `DM 실패: ${out?.error ?? r.status}`;
           if (hook) {                                  // DM 이 안 되면 채널로 내린다
-            const r2 = await fetch(hook, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text }),
-            });
-            tier = r2.ok ? "channel" : "bell";
-            if (!r2.ok) detail += ` / 채널 실패: ${r2.status}`;
+            const bad = await toChannel(text);
+            tier = bad ? "bell" : "channel";
+            if (bad) detail += ` / ${bad}`;
           }
         }
       } else if (hook) {
-        const r2 = await fetch(hook, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
-        tier = r2.ok ? "channel" : "bell";
-        if (!r2.ok) detail = `채널 실패: ${r2.status}`;
-        else if (!token) detail = "봇 토큰이 없어 채널로만";
-        else detail = "짝 맞춤표에 없어 채널로만";
+        const bad = await toChannel(text);
+        tier = bad ? "bell" : "channel";
+        if (bad) detail = bad;
+        else detail = token ? "짝 맞춤표에 없어 채널로만" : "봇 토큰이 없어 채널로만";
       } else {
         detail = token ? "짝 맞춤표에 없고 웹훅도 없음" : "봇 토큰도 웹훅도 없음";
       }
@@ -158,6 +182,53 @@ Deno.serve(async (req: Request) => {
     });
 
     results.push({ name, tier, detail: detail || undefined });
+  }
+
+  // ── 나 자신을 부른 경우 — 채널 heads-up 만 (DM 은 시도하지 않는다) ──
+  const mentions: string[] = (src.data as { mention_ids?: string[] }).mention_ids ?? [];
+  if (mentions.includes(me.id)) {
+    const dupe = await db.from("elaina_slack_deliveries")
+      .select("id")
+      .is("notification_id", null)
+      .eq("recipient_id", me.id)
+      .eq(replyId != null ? "reply_id" : "memo_id", replyId ?? memoId)
+      .maybeSingle();
+
+    if (!dupe.data) {
+      const mine = await db.from("elaina_viewers")
+        .select("display_name").eq("user_id", me.id).maybeSingle();
+      const myName = mine.data?.display_name ?? "나";
+      const excerpt = String((src.data as { body?: string }).body ?? "").trim().slice(0, 140);
+      const text = `🗄 서랍 · ${target.label || target.id}\n*${myName}* 님이 자기 자신을 불렀습니다 (웹훅 점검)\n>${excerpt.replace(/\n/g, "\n>")}${deepLink()}`;
+
+      let tier = "bell";
+      let detail = "나 자신 호출 — 인앱 벨은 울리지 않습니다";
+      try {
+        if (hook) {
+          const bad = await toChannel(text);
+          tier = bad ? "bell" : "channel";
+          detail = bad ? `${detail} / ${bad}` : `${detail}, 채널로만 보냈습니다`;
+        } else {
+          detail = `${detail} / 웹훅이 없어 아무 것도 보내지 않았습니다`;
+        }
+      } catch (e) {
+        tier = "bell";
+        detail = `보내다 실패: ${e instanceof Error ? e.message : String(e)}`;
+      }
+
+      await db.from("elaina_slack_deliveries").insert({
+        notification_id: null,
+        memo_id: target.memoId,
+        reply_id: replyId,
+        actor_id: me.id,
+        recipient_id: me.id,
+        recipient_name: myName,
+        tier,
+        detail,
+      });
+
+      results.push({ name: `${myName}(나 자신)`, tier, detail });
+    }
   }
 
   return json({

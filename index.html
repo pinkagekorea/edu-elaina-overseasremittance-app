@@ -2272,7 +2272,8 @@ var Drawer = (function () {
       say(ui.memoMsg, rows.length ? '남겼습니다.' : '남겼습니다. 부른 사람은 없습니다.', 'ok');
       return loadMemos().then(refresh).then(function () {
         if (out.memo_id != null) pick(out.memo_id);
-        if (out.memo_id != null && (out.notified || []).length) {
+        /* 나를 부른 경우(out.self)도 보낸다 — 벨은 안 울리고 채널로만 간다 */
+        if (out.memo_id != null && ((out.notified || []).length || out.self)) {
           return relaySlack({ memo_id: out.memo_id }, ui.memoNote);
         }
       });
@@ -2307,7 +2308,7 @@ var Drawer = (function () {
       drawNote(ui.replyNote, rows, false);
       say(ui.replyMsg, rows.length ? '남겼습니다.' : '남겼습니다. 부른 사람은 없습니다.', 'ok');
       return loadReplies(id).then(function () {
-        if (out.reply_id != null && (out.notified || []).length) {
+        if (out.reply_id != null && ((out.notified || []).length || out.self)) {
           return relaySlack({ reply_id: out.reply_id }, ui.replyNote);
         }
       });
