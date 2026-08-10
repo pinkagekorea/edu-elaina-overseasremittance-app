@@ -2030,7 +2030,9 @@ var Drawer = (function () {
     say(ui.memoMsg, ''); say(ui.replyMsg, '');
     ui.memoText.value = ''; ui.replyText.value = '';
     ui.memoNote.textContent = ''; ui.replyNote.textContent = '';
-    pendMemo = []; pendReply = [];
+    /* 내용만 비운다. pendMemo = [] 로 갈아끼우면 wirePaste 가 붙들고 있는
+       배열과 갈라져, 붙여넣은 캡처가 저장될 때 사라진다. */
+    pendMemo.length = 0; pendReply.length = 0;
     ui.memoShots.textContent = ''; ui.replyShots.textContent = '';
     ui.memos.textContent = '';
     ui.memos.appendChild(h('li', 'memo-empty', '불러오는 중…'));
@@ -2215,7 +2217,7 @@ var Drawer = (function () {
       if (res.error) throw res.error;
       var out = res.data || {};
       ui.memoText.value = '';
-      pendMemo = []; ui.memoShots.textContent = '';
+      pendMemo.length = 0; ui.memoShots.textContent = '';
       var rows = outcomeRows(out);
       drawNote(ui.memoNote, rows, false);
       say(ui.memoMsg, rows.length ? '남겼습니다.' : '남겼습니다. 부른 사람은 없습니다.', 'ok');
@@ -2248,7 +2250,7 @@ var Drawer = (function () {
       if (res.error) throw res.error;
       var out = res.data || {};
       ui.replyText.value = '';
-      pendReply = []; ui.replyShots.textContent = '';
+      pendReply.length = 0; ui.replyShots.textContent = '';
       var rows = outcomeRows(out);
       drawNote(ui.replyNote, rows, false);
       say(ui.replyMsg, rows.length ? '남겼습니다.' : '남겼습니다. 부른 사람은 없습니다.', 'ok');
@@ -2315,6 +2317,7 @@ var Drawer = (function () {
     },
     reset: function () {
       me = null; roster = null; cur = null; memos = []; picked = null;
+      pendMemo.length = 0; pendReply.length = 0;
       if (dlg && dlg.open) dlg.close();
       mounts.forEach(function (m) {
         m.btn.disabled = true;
