@@ -2114,6 +2114,14 @@ var Drawer = (function () {
         del.addEventListener('click', function () { remove(T_MEMO, m.id, loadMemos); });
         foot.appendChild(del);
         li.appendChild(foot);
+      } else if (m.deleted_at && me && me.admin) {
+        /* 이미 지운 글의 비석은 관리자만 치울 수 있다 */
+        var foot2 = h('div', 'memo-foot');
+        var purge = h('button', 'memo-del', '완전 삭제');
+        purge.type = 'button';
+        purge.addEventListener('click', function () { purgeMemo(m.id); });
+        foot2.appendChild(purge);
+        li.appendChild(foot2);
       }
 
       ui.memos.appendChild(li);
@@ -2178,6 +2186,13 @@ var Drawer = (function () {
           });
           foot.appendChild(del);
           card.appendChild(foot);
+        } else if (r.deleted_at && me && me.admin) {
+          var foot2 = h('div', 'memo-foot');
+          var purge = h('button', 'memo-del', '완전 삭제');
+          purge.type = 'button';
+          purge.addEventListener('click', function () { purgeReply(r.id, id); });
+          foot2.appendChild(purge);
+          card.appendChild(foot2);
         }
         li.appendChild(card);
         ui.replies.appendChild(li);
@@ -2300,6 +2315,66 @@ var Drawer = (function () {
     }).catch(function (err) {
       say(msgBox, '지우지 못했습니다: ' + describeError(err), 'bad');
     });
+  }
+
+  /* ---- 관리자: 지운 글의 비석을 치운다 --------------------------- *
+   *  자격 검사(관리자인가 · 이미 지운 글인가)는 서버 함수가 한다.
+   *  화면의 버튼 감춤은 편의일 뿐 방어선이 아니다.
+   *  메모를 치우면 딸린 답글·멘션·알림도 외래키로 함께 사라진다.
+   * --------------------------------------------------------------- */
+  function purge(kind, id, after) {
+    var isMemo = (kind === 'memo');
+    var msgBox = isMemo ? ui.memoMsg : ui.replyMsg;
+    if (!window.confirm(
+      isMemo
+        ? '이 메모를 기록에서 완전히 지웁니다.\n딸린 답글·호출·알림과 붙은 캡처도 함께 사라지며 되돌릴 수 없습니다.\n계속할까요?'
+        : '이 답글을 기록에서 완전히 지웁니다.\n붙은 캡처도 함께 사라지며 되돌릴 수 없습니다.\n계속할까요?')) return;
+
+    Promise.resolve(
+      CLIENT.rpc(isMemo ? 'elaina_purge_memo' : 'elaina_purge_reply',
+                 isMemo ? { p_memo_id: id } : { p_reply_id: id })
+    ).then(function (res) {
+      if (res.error) throw res.error;
+      var out = res.data || {};
+      var paths = out.paths || [];
+      var note = isMemo && out.replies ? ' 답글 ' + out.replies + '건도 함께.' : '';
+      if (!paths.length) return { msg: '완전히 지웠습니다.' + note };
+      return Promise.resolve(CLIENT.storage.from(BUCKET).remove(paths))
+        .then(function (r) {
+          var done = (r && r.data && r.data.length) || 0;
+          var left = paths.length - done;
+          return {
+            msg: left
+              ? '완전히 지웠습니다.' + note + ' 다만 캡처 ' + left + '장을 버킷에서 치우지 못했습니다.'
+              : '완전히 지웠습니다.' + note + ' 캡처 ' + done + '장도 함께 치웠습니다.',
+            bad: !!left
+          };
+        })
+        .catch(function (e) {
+          return { msg: '완전히 지웠습니다. 다만 캡처를 치우지 못했습니다: ' + describeError(e), bad: true };
+        });
+    }).then(function (out) {
+      say(msgBox, out.msg, out.bad ? 'bad' : 'ok');
+      return Promise.resolve(after()).then(refresh);
+    }).catch(function (err) {
+      say(msgBox, '완전 삭제하지 못했습니다: ' + describeError(err), 'bad');
+    });
+  }
+
+  function purgeMemo(id) {
+    purge('memo', id, function () {
+      if (String(picked) === String(id)) {      // 오른쪽 칸이 사라진 메모를 보고 있다
+        picked = null;
+        ui.replies.textContent = '';
+        ui.replyForm.hidden = true;
+        ui.replyHead.textContent = '답글';
+      }
+      return loadMemos();
+    });
+  }
+
+  function purgeReply(replyId, memoId) {
+    purge('reply', replyId, function () { return loadReplies(memoId); });
   }
 
   /* ---- 바깥에서 쓰는 것 ----------------------------------------- */
