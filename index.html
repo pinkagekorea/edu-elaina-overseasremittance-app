@@ -544,17 +544,84 @@
   .drawer-form textarea::placeholder { color: var(--ink-muted); }
   .drawer-form textarea[disabled] { background: var(--ivory); }
 
-  .mention-chips {
-    display: flex; flex-wrap: wrap; gap: 5px;
-    margin-bottom: 8px; max-height: 58px; overflow-y: auto;
+  /* ---- @ 자동완성 ---- */
+  .mention-host { position: relative; }
+  .mention-pop {
+    position: absolute; left: 0; right: 0; bottom: 100%;
+    margin-bottom: 4px; z-index: 3;
+    background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--r-control);
+    box-shadow: var(--shadow);
+    max-height: 190px; overflow-y: auto; padding: 4px;
   }
-  .mention-chip {
-    font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
-    background: var(--card); color: var(--navy);
-    border: 1px solid var(--border); border-radius: var(--r-badge);
-    padding: 2px 7px;
+  .mention-pop[hidden] { display: none; }
+  .mention-opt {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+    background: none; border: 0; border-radius: var(--r-badge);
+    padding: 7px 9px; color: var(--ink);
   }
-  .mention-chip:hover { background: var(--blush); }
+  .mention-opt b { color: var(--navy); font-weight: 800; }
+  .mention-opt .off { margin-left: auto; font-size: 11px; color: var(--ink-muted); }
+  .mention-opt:hover,
+  .mention-opt[aria-selected="true"] { background: var(--blush); }
+  .mention-none { font-size: 12px; color: var(--ink-muted); padding: 8px 9px; }
+
+  /* ---- 부른 사람 판정 (쓰는 중 · 남긴 뒤) ---- */
+  .mention-note { margin: 8px 0 0; font-size: 11px; line-height: 1.6; }
+  .mention-note:empty { margin: 0; }
+  .mention-note div { display: flex; gap: 6px; align-items: baseline; }
+  .mention-note .ok   { color: var(--up); }
+  .mention-note .warn { color: var(--down); font-weight: 700; }
+  .mention-note .off  { color: var(--ink-muted); }
+
+  /* ---- 알림함 (머리말 오른쪽) ---- */
+  .bell-wrap { position: relative; }
+  .bell-wrap[hidden] { display: none; }
+  .bell-btn { display: inline-flex; align-items: center; gap: 6px; }
+  .bell-btn .badge { background: var(--pink); color: #fff; }   /* 4.72:1 */
+  .bell-panel {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 20;
+    width: min(380px, calc(100vw - 28px));
+    background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--r-card);
+    box-shadow: var(--shadow);
+    max-height: min(460px, 70vh); display: flex; flex-direction: column;
+  }
+  .bell-panel[hidden] { display: none; }
+  .bell-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border-bottom: 1px solid var(--line); flex: none;
+  }
+  .bell-head h3 {
+    font-size: 13px; font-weight: 700; color: var(--navy); margin: 0;
+    letter-spacing: -0.02em;
+  }
+  .bell-mute {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--ink); cursor: pointer;
+  }
+  .bell-list { list-style: none; margin: 0; padding: 8px; overflow-y: auto; flex: 1 1 auto; }
+  .bell-empty { font-size: 12px; color: var(--ink-muted); padding: 14px 6px; text-align: center; }
+  .bell-item {
+    display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
+    background: none; color: var(--ink);
+    border: 1px solid transparent; border-radius: var(--r-control);
+    padding: 9px 10px;
+  }
+  .bell-item:hover { background: var(--ivory); border-color: var(--border); }
+  .bell-item.unread { background: var(--blush); }
+  .bell-item.unread:hover { border-color: var(--border); }
+  .bell-where {
+    font-size: 11px; color: var(--ink-muted);
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline;
+  }
+  .bell-who { font-size: 12px; color: var(--navy); font-weight: 800; margin: 3px 0 2px; }
+  .bell-what {
+    font-size: 12px; color: var(--ink); line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 
   .drawer-actions {
     display: flex; align-items: center; gap: 10px;
@@ -608,6 +675,26 @@
 
     <!-- 로그인한 사람 · 로그아웃 (오른쪽 위) -->
     <div class="account" id="account" hidden>
+      <!-- 알림함 — 서랍을 열지 않아도 호출을 알 수 있게 머리말에 둔다 -->
+      <div class="bell-wrap" id="bell-wrap" hidden>
+        <button type="button" class="btn btn-ghost bell-btn" id="bell-btn"
+                aria-haspopup="true" aria-expanded="false" aria-controls="bell-panel">
+          <span aria-hidden="true">🔔</span>
+          <span>알림</span>
+          <span class="badge" id="bell-count" hidden>0</span>
+        </button>
+
+        <div class="bell-panel" id="bell-panel" role="dialog" aria-label="알림함" hidden>
+          <div class="bell-head">
+            <h3>알림</h3>
+            <label class="bell-mute">
+              <input type="checkbox" id="bell-mute"> 알림 끄기
+            </label>
+          </div>
+          <ul class="bell-list" id="bell-list"></ul>
+        </div>
+      </div>
+
       <span class="account-email" id="account-email"></span>
       <button type="button" class="btn btn-ghost" id="logout-btn">로그아웃</button>
     </div>
@@ -965,6 +1052,8 @@ function clearData() {
   if (fnOut) { fnOut.hidden = true; fnOut.textContent = ''; fnOut.className = 'fn-out'; }
 
   Drawer.reset();                         // 서랍도 닫고 배지·명단을 버린다
+  Bell.reset();                           // 알림함도 비운다
+  URL_OPENED = false;                     // 다시 로그인하면 주소를 한 번 더 본다
 
   el('adminOnly').hidden = true;          // 로그아웃하면 관리자 영역도 닫는다
   el('admin-result').hidden = true;
@@ -1013,6 +1102,7 @@ function enterApp(user) {
   el('adminOnly').hidden = !isAdmin(email);
 
   Drawer.setUser(user);        // 서랍 배지는 로그인한 뒤에만 센다
+  Bell.setUser(user);          // 알림함도 로그인한 뒤에만
 
   showLoading();
   loadData();
@@ -1431,6 +1521,16 @@ var Drawer = (function () {
     var x = h('button', 'btn btn-ghost drawer-close', '닫기');
     x.type = 'button';
     x.addEventListener('click', function () { dlg.close(); });
+
+    /* @ 목록이 떠 있을 때의 Esc 는 목록만 닫는다. 팝업까지 닫히면
+       쓰던 글이 날아간다. (dialog 의 Esc 는 cancel 로 온다) */
+    dlg.addEventListener('cancel', function (e) {
+      if (!ui.memoPop.hidden || !ui.replyPop.hidden) {
+        e.preventDefault();
+        ui.memoPop.hidden = true;  ui.memoPop.textContent = '';
+        ui.replyPop.hidden = true; ui.replyPop.textContent = '';
+      }
+    });
     head.appendChild(hbox); head.appendChild(x);
 
     var body = h('div', 'drawer-body');
@@ -1442,18 +1542,21 @@ var Drawer = (function () {
     ui.count = h('span', 'badge', '0');
     lh.appendChild(ui.count);
     ui.memos = h('ul', 'memo-list');
-    ui.memoForm  = h('form', 'drawer-form');
-    ui.memoChips = h('div', 'mention-chips');
-    ui.memoText  = h('textarea');
-    ui.memoText.placeholder = '이 표를 보고 내린 판단을 남기세요. 위 이름을 눌러 @로 부를 수 있습니다.';
+    ui.memoForm = h('form', 'drawer-form');
+    var mHost   = h('div', 'mention-host');
+    ui.memoPop  = h('div', 'mention-pop'); ui.memoPop.hidden = true;
+    ui.memoText = h('textarea');
+    ui.memoText.placeholder = '이 표를 보고 내린 판단을 남기세요. @ 를 치면 팀 사람 목록이 뜹니다.';
     ui.memoText.setAttribute('aria-label', '새 메모');
+    mHost.appendChild(ui.memoPop); mHost.appendChild(ui.memoText);
+    ui.memoNote = h('div', 'mention-note');
     ui.memoMsg  = h('p', 'drawer-msg');
     ui.memoSend = h('button', 'btn btn-primary', '남기기');
     ui.memoSend.type = 'submit';
     var la = h('div', 'drawer-actions');
     la.appendChild(ui.memoSend); la.appendChild(ui.memoMsg);
-    ui.memoForm.appendChild(ui.memoChips);
-    ui.memoForm.appendChild(ui.memoText);
+    ui.memoForm.appendChild(mHost);
+    ui.memoForm.appendChild(ui.memoNote);
     ui.memoForm.appendChild(la);
     left.appendChild(lh); left.appendChild(ui.memos); left.appendChild(ui.memoForm);
 
@@ -1462,18 +1565,21 @@ var Drawer = (function () {
     right.setAttribute('aria-label', '답글');
     ui.replyHead = h('h3', null, '답글');
     ui.replies = h('ul', 'memo-list');
-    ui.replyForm  = h('form', 'drawer-form');
-    ui.replyChips = h('div', 'mention-chips');
-    ui.replyText  = h('textarea');
-    ui.replyText.placeholder = '답글을 남기세요.';
+    ui.replyForm = h('form', 'drawer-form');
+    var rHost    = h('div', 'mention-host');
+    ui.replyPop  = h('div', 'mention-pop'); ui.replyPop.hidden = true;
+    ui.replyText = h('textarea');
+    ui.replyText.placeholder = '답글을 남기세요. @ 로 사람을 부를 수 있습니다.';
     ui.replyText.setAttribute('aria-label', '새 답글');
+    rHost.appendChild(ui.replyPop); rHost.appendChild(ui.replyText);
+    ui.replyNote = h('div', 'mention-note');
     ui.replyMsg  = h('p', 'drawer-msg');
     ui.replySend = h('button', 'btn btn-primary', '답글 남기기');
     ui.replySend.type = 'submit';
     var ra = h('div', 'drawer-actions');
     ra.appendChild(ui.replySend); ra.appendChild(ui.replyMsg);
-    ui.replyForm.appendChild(ui.replyChips);
-    ui.replyForm.appendChild(ui.replyText);
+    ui.replyForm.appendChild(rHost);
+    ui.replyForm.appendChild(ui.replyNote);
     ui.replyForm.appendChild(ra);
     right.appendChild(ui.replyHead); right.appendChild(ui.replies); right.appendChild(ui.replyForm);
 
@@ -1483,12 +1589,17 @@ var Drawer = (function () {
 
     ui.memoForm.addEventListener('submit', function (e) { e.preventDefault(); postMemo(); });
     ui.replyForm.addEventListener('submit', function (e) { e.preventDefault(); postReply(); });
+
+    wireMention(ui.memoText,  ui.memoPop,  ui.memoNote);
+    wireMention(ui.replyText, ui.replyPop, ui.replyNote);
   }
 
-  /* ---- 명단 (@ 후보) ------------------------------------------- */
+  /* ---- 명단 (@ 후보) — 이 화면을 볼 수 있는 사람만 -------------- */
+  /* 8일차 화면 권한(elaina_viewers)을 그대로 따른다. 서버 함수가 명단 밖
+     사람에게는 빈 결과를 준다. 이메일은 내려오지 않는다. */
   function loadRoster() {
     if (roster) return Promise.resolve(roster);
-    return Promise.resolve(CLIENT.rpc('elaina_mention_list'))
+    return Promise.resolve(CLIENT.rpc('elaina_mention_directory'))
       .then(function (res) {
         roster = (res && !res.error && res.data) ? res.data : [];
         return roster;
@@ -1496,19 +1607,141 @@ var Drawer = (function () {
       .catch(function () { roster = []; return roster; });
   }
 
-  function drawChips(box, target) {
-    box.textContent = '';
-    (roster || []).forEach(function (r) {
-      if (me && r.user_id === me.id) return;          // 나 자신은 부르지 않는다
-      var c = h('button', 'mention-chip', '@' + r.display_name);
-      c.type = 'button';
-      c.addEventListener('click', function () {
-        var v = target.value;
-        target.value = v + (v && !/\s$/.test(v) ? ' ' : '') + '@' + r.display_name + ' ';
-        target.focus();
+  /* ---- @ 자동완성 ---------------------------------------------- */
+  /* 글에는 사람이 읽는 이름만 들어간다. 번호(uuid)는 저장할 때 서버가
+     본문에서 다시 계산한다 — 화면이 보낸 값은 쓰지 않는다. */
+  var NAME_CH = '[0-9A-Za-z가-힣_.-]';
+
+  function tokenAt(ta) {
+    var upto = ta.value.slice(0, ta.selectionStart);
+    var m = new RegExp('(?:^|[\\s(\\[])@(' + NAME_CH + '{0,32})$').exec(upto);
+    if (!m) return null;
+    return { q: m[1], at: upto.length - m[1].length - 1 };   // '@' 가 있는 자리
+  }
+
+  function insertName(ta, tok, name) {
+    var before = ta.value.slice(0, tok.at);
+    var after  = ta.value.slice(ta.selectionStart);
+    var ins    = '@' + name + ' ';
+    ta.value = before + ins + after;
+    var caret = before.length + ins.length;
+    ta.setSelectionRange(caret, caret);
+    ta.focus();
+  }
+
+  function wireMention(ta, pop, note) {
+    var opts = [];      // 지금 떠 있는 후보
+    var sel  = 0;
+    var timer = null;
+
+    function close() { pop.hidden = true; pop.textContent = ''; opts = []; sel = 0; }
+
+    function paint() {
+      pop.textContent = '';
+      if (!opts.length) {
+        pop.appendChild(h('div', 'mention-none', '그런 이름이 명단에 없습니다.'));
+        return;
+      }
+      opts.forEach(function (r, i) {
+        var b = h('button', 'mention-opt');
+        b.type = 'button';
+        b.setAttribute('aria-selected', i === sel ? 'true' : 'false');
+        var nm = h('b', null, '@' + r.display_name);
+        b.appendChild(nm);
+        if (r.muted) b.appendChild(h('span', 'off', '알림 꺼둠'));
+        b.addEventListener('mousedown', function (e) {
+          e.preventDefault();                        // 텍스트 상자 포커스 유지
+          var tok = tokenAt(ta);
+          if (tok) insertName(ta, tok, r.display_name);
+          close();
+          preview();
+        });
+        pop.appendChild(b);
       });
-      box.appendChild(c);
+    }
+
+    function refreshPop() {
+      var tok = tokenAt(ta);
+      if (!tok) { close(); return; }
+      if (!roster) {                       // 명단이 아직 안 왔다
+        pop.hidden = false;
+        pop.textContent = '';
+        pop.appendChild(h('div', 'mention-none', '명단을 불러오는 중…'));
+        opts = []; return;
+      }
+      var q = tok.q.toLowerCase();
+      opts = (roster || []).filter(function (r) {
+        if (me && r.user_id === me.id) return false;      // 나 자신은 부를 이유가 없다
+        return !q || r.display_name.toLowerCase().indexOf(q) === 0;
+      }).slice(0, 8);
+      sel = 0;
+      pop.hidden = false;
+      paint();
+    }
+
+    /* 쓰는 중 판정 — 친 이름만 서버에 물어본다(명단을 훑을 수는 없다) */
+    function preview() {
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        var body = ta.value;
+        if (body.indexOf('@') === -1) { note.textContent = ''; return; }
+        Promise.resolve(CLIENT.rpc('elaina_preview_mentions', { p_body: body }))
+          .then(function (res) {
+            if (res.error) throw res.error;
+            if (ta.value !== body) return;               // 그새 더 쳤다
+            drawNote(note, res.data || [], true);
+          })
+          .catch(function () { /* 판정은 남길 때 서버가 다시 한다 */ });
+      }, 350);
+    }
+
+    ta.addEventListener('input', function () { refreshPop(); preview(); });
+    ta.addEventListener('blur', function () { setTimeout(close, 120); });
+
+    ta.addEventListener('keydown', function (e) {
+      if (pop.hidden) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, opts.length - 1); paint(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0); paint(); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+      else if ((e.key === 'Enter' || e.key === 'Tab') && opts.length) {
+        e.preventDefault();
+        var tok = tokenAt(ta);
+        if (tok) insertName(ta, tok, opts[sel].display_name);
+        close();
+        preview();
+      }
     });
+  }
+
+  /* 부른 사람 판정을 사람 말로 적는다. 조용히 넘어가지 않는다. */
+  function drawNote(note, rows, typing) {
+    note.textContent = '';
+    (rows || []).forEach(function (r) {
+      var line = h('div');
+      if (r.is_self) {
+        line.appendChild(h('span', 'off', '· @' + r.name + ' — 나 자신에게는 알림이 가지 않습니다.'));
+      } else if (!r.can_view) {
+        line.appendChild(h('span', 'warn',
+          '⚠ ' + r.name + '님은 이 화면을 볼 수 없어 알림을 못 받습니다.'));
+      } else if (r.muted) {
+        line.appendChild(h('span', 'off',
+          '🔕 ' + r.name + '님은 알림을 꺼 두었습니다.'));
+      } else {
+        line.appendChild(h('span', 'ok',
+          (typing ? '→ ' + r.name + '님에게 알림이 갑니다.'
+                  : '→ ' + r.name + '님에게 보냈습니다.')));
+      }
+      note.appendChild(line);
+    });
+  }
+
+  /* 서버가 돌려준 결과({notified,blocked,muted})를 같은 모양으로 바꾼다 */
+  function outcomeRows(out) {
+    var rows = [];
+    (out.notified || []).forEach(function (x) { rows.push({ name: x.name, can_view: true,  muted: false }); });
+    (out.muted    || []).forEach(function (x) { rows.push({ name: x.name, can_view: true,  muted: true  }); });
+    (out.blocked  || []).forEach(function (x) { rows.push({ name: x.name, can_view: false, muted: false }); });
+    return rows;
   }
 
   /* ---- 배지 ----------------------------------------------------- */
@@ -1543,7 +1776,7 @@ var Drawer = (function () {
   }
 
   /* ---- 열기 ----------------------------------------------------- */
-  function open(target) {
+  function open(target, wantMemoId) {
     build();
     cur = target;
     picked = null;
@@ -1553,6 +1786,7 @@ var Drawer = (function () {
                          ' — 남긴 뒤에는 본문을 고칠 수 없습니다.';
     say(ui.memoMsg, ''); say(ui.replyMsg, '');
     ui.memoText.value = ''; ui.replyText.value = '';
+    ui.memoNote.textContent = ''; ui.replyNote.textContent = '';
     ui.memos.textContent = '';
     ui.memos.appendChild(h('li', 'memo-empty', '불러오는 중…'));
     ui.replies.textContent = '';
@@ -1561,11 +1795,13 @@ var Drawer = (function () {
 
     if (!dlg.open) dlg.showModal();
 
-    loadRoster()
+    return loadRoster()
+      .then(loadMemos)
       .then(function () {
-        drawChips(ui.memoChips, ui.memoText);
-        drawChips(ui.replyChips, ui.replyText);
-        return loadMemos();
+        /* 알림을 눌러 들어온 경우 그 메모를 고른 채로 도착한다 */
+        if (wantMemoId == null) return;
+        var hit = memos.filter(function (m) { return String(m.id) === String(wantMemoId); })[0];
+        if (hit) pick(hit.id);
       });
   }
 
@@ -1698,21 +1934,13 @@ var Drawer = (function () {
   }
 
   /* ---- 남기기 --------------------------------------------------- */
-  /* 누구에게 알림이 갔는지는 서버가 계산한 mention_ids 로만 말한다.
-     화면이 짐작해서 말하지 않는다. */
-  function toldWho(ids) {
-    var names = (ids || [])
-      .filter(function (id) { return !me || id !== me.id; })
-      .map(function (id) { return nameOf(id); })
-      .filter(Boolean);
-    return names.length ? '→ ' + names.join(', ') + '님에게 알림이 갔습니다.' : '';
-  }
-
   function busy(on, btn, text, idleText) {
     btn.disabled = on;
     btn.textContent = on ? text : idleText;
   }
 
+  /* 저장·알림은 서버 함수(SECURITY DEFINER)가 한 번에 처리한다.
+     누구에게 갔고 누가 못 받았는지도 서버 판정 그대로 받아 적는다. */
   function postMemo() {
     var body = ui.memoText.value.trim();
     if (!body) { say(ui.memoMsg, '내용을 적어 주세요.', 'bad'); return; }
@@ -1720,17 +1948,22 @@ var Drawer = (function () {
     say(ui.memoMsg, '');
 
     Promise.resolve(
-      CLIENT.from(T_MEMO).insert({
-        target_type:  cur.type,
-        target_id:    cur.id,
-        target_label: cur.label || null,
-        body:         body
-      }).select('id, mention_ids').single()
+      CLIENT.rpc('elaina_post_memo', {
+        p_target_type:  cur.type,
+        p_target_id:    cur.id,
+        p_target_label: cur.label || null,
+        p_body:         body
+      })
     ).then(function (res) {
       if (res.error) throw res.error;
+      var out = res.data || {};
       ui.memoText.value = '';
-      say(ui.memoMsg, ('남겼습니다. ' + toldWho(res.data && res.data.mention_ids)).trim(), 'ok');
-      return loadMemos().then(refresh);
+      var rows = outcomeRows(out);
+      drawNote(ui.memoNote, rows, false);
+      say(ui.memoMsg, rows.length ? '남겼습니다.' : '남겼습니다. 부른 사람은 없습니다.', 'ok');
+      return loadMemos().then(refresh).then(function () {
+        if (out.memo_id != null) pick(out.memo_id);
+      });
     }).catch(function (err) {
       say(ui.memoMsg, '남기지 못했습니다: ' + describeError(err), 'bad');
     }).then(function () {
@@ -1747,12 +1980,14 @@ var Drawer = (function () {
     say(ui.replyMsg, '');
 
     Promise.resolve(
-      CLIENT.from(T_REPLY).insert({ memo_id: id, body: body })
-        .select('id, mention_ids').single()
+      CLIENT.rpc('elaina_post_reply', { p_memo_id: id, p_body: body })
     ).then(function (res) {
       if (res.error) throw res.error;
+      var out = res.data || {};
       ui.replyText.value = '';
-      say(ui.replyMsg, ('남겼습니다. ' + toldWho(res.data && res.data.mention_ids)).trim(), 'ok');
+      var rows = outcomeRows(out);
+      drawNote(ui.replyNote, rows, false);
+      say(ui.replyMsg, rows.length ? '남겼습니다.' : '남겼습니다. 부른 사람은 없습니다.', 'ok');
       return loadReplies(id);
     }).catch(function (err) {
       say(ui.replyMsg, '남기지 못했습니다: ' + describeError(err), 'bad');
@@ -1798,6 +2033,15 @@ var Drawer = (function () {
         if (m.badge) { m.badge.hidden = true; m.badge.textContent = '0'; }
       });
     },
+
+    /* 알림·딥링크에서 부른다. 대상 id 만 알면 어느 서랍이든 열 수 있다. */
+    openFor: function (type, id, memoId) {
+      var hit = null;
+      mounts.forEach(function (m) {
+        if (m.target.type === type && String(m.target.id) === String(id)) hit = m.target;
+      });
+      return open(hit || { type: type, id: id, label: id }, memoId);
+    },
     refresh: refresh
   };
 })();
@@ -1807,6 +2051,184 @@ function wireDrawer() {
   Drawer.attach(el('drawer-monthly'),
                 { type: 'table', id: 'monthly', label: '월별 상세 내역' });
 }
+
+/* ------------------------------------------------------------------ *
+ *  데려오기 — 알림을 누르면 그 대상 화면이 서랍까지 펼쳐진 채로 열린다
+ *
+ *    ?t=table&id=monthly&drawer=1&memo=12
+ *
+ *  주소로 남기므로 새로고침·북마크·남에게 링크 보내기가 모두 된다.
+ * ------------------------------------------------------------------ */
+function drawerLink(type, id, memoId) {
+  var q = new URLSearchParams();
+  q.set('t', type); q.set('id', id); q.set('drawer', '1');
+  if (memoId != null && memoId !== '') q.set('memo', String(memoId));
+  return window.location.origin + window.location.pathname + '?' + q.toString();
+}
+
+/* 로그인해 화면이 그려진 뒤 한 번 부른다 */
+var URL_OPENED = false;
+function openFromUrl() {
+  if (URL_OPENED) return;
+  var q = new URLSearchParams(window.location.search);
+  if (q.get('drawer') !== '1') return;
+  var t = q.get('t'), id = q.get('id');
+  if (!t || !id) return;
+  URL_OPENED = true;
+  Drawer.openFor(t, id, q.get('memo'));
+}
+
+/* ------------------------------------------------------------------ *
+ *  알림함 — 어디서 · 누가 · 뭐라고
+ * ------------------------------------------------------------------ */
+var Bell = (function () {
+  var T = 'elaina_notifications';
+  var me = null, rows = [], shown = false;
+
+  function when(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var p = function (v) { return (v < 10 ? '0' : '') + v; };
+    return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' +
+           p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function unread() {
+    return rows.filter(function (n) { return !n.read_at; }).length;
+  }
+
+  function paintCount() {
+    var n = unread();
+    var b = el('bell-count');
+    b.textContent = String(n);
+    b.hidden = (n === 0);
+  }
+
+  function load() {
+    if (!CLIENT || !me) return Promise.resolve();
+    return Promise.resolve(
+      CLIENT.from(T).select('*').order('created_at', { ascending: false }).limit(30)
+    ).then(function (res) {
+      if (res.error) throw res.error;
+      rows = res.data || [];
+      paintCount();
+      if (shown) paint();
+    }).catch(function () { /* 알림이 안 떠도 화면은 살아 있어야 한다 */ });
+  }
+
+  function paint() {
+    var list = el('bell-list');
+    list.textContent = '';
+    if (!rows.length) {
+      list.appendChild(mk('li', 'bell-empty', '아직 온 알림이 없습니다.'));
+      return;
+    }
+    rows.forEach(function (n) {
+      var li = document.createElement('li');
+      var b  = mk('button', 'bell-item' + (n.read_at ? '' : ' unread'));
+      b.type = 'button';
+
+      var where = mk('div', 'bell-where');
+      where.appendChild(mk('span', null,
+        '🗄 ' + (n.target_label || n.target_id)));
+      where.appendChild(mk('span', null, '· ' + when(n.created_at)));
+      b.appendChild(where);
+
+      b.appendChild(mk('div', 'bell-who',
+        (n.actor_name || '누군가') + '님이 ' +
+        (n.kind === 'reply' ? '답글을 남겼습니다' : '불렀습니다')));
+
+      b.appendChild(mk('div', 'bell-what', n.excerpt || ''));
+
+      b.addEventListener('click', function () { go(n); });
+      li.appendChild(b);
+      list.appendChild(li);
+    });
+  }
+
+  function mk(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function go(n) {
+    /* 주소를 그 대상 주소로 바꿔 두고(복사해 보낼 수 있게) 서랍을 연다 */
+    try {
+      window.history.replaceState(null, '',
+        drawerLink(n.target_type, n.target_id, n.memo_id));
+    } catch (e) {}
+    close();
+    Drawer.openFor(n.target_type, n.target_id, n.memo_id);
+    if (!n.read_at) markRead(n);
+  }
+
+  function markRead(n) {
+    n.read_at = new Date().toISOString();     // 화면은 먼저 반영
+    paintCount();
+    Promise.resolve(
+      CLIENT.from(T).update({ read_at: n.read_at }).eq('id', n.id).select('id')
+    ).catch(function () {});
+  }
+
+  function open() {
+    shown = true;
+    el('bell-panel').hidden = false;
+    el('bell-btn').setAttribute('aria-expanded', 'true');
+    paint();
+    load();
+  }
+  function close() {
+    shown = false;
+    el('bell-panel').hidden = true;
+    el('bell-btn').setAttribute('aria-expanded', 'false');
+  }
+
+  function loadMuted() {
+    return Promise.resolve(
+      CLIENT.from('elaina_notification_prefs').select('muted').maybeSingle()
+    ).then(function (res) {
+      el('bell-mute').checked = !!(res && res.data && res.data.muted);
+    }).catch(function () {});
+  }
+
+  return {
+    wire: function () {
+      el('bell-btn').addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (shown) close(); else open();
+      });
+      document.addEventListener('click', function (e) {
+        if (!shown) return;
+        if (el('bell-wrap').contains(e.target)) return;
+        close();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && shown) close();
+      });
+      el('bell-mute').addEventListener('change', function () {
+        var on = el('bell-mute').checked;
+        Promise.resolve(CLIENT.rpc('elaina_set_muted', { p_muted: on }))
+          .catch(function () { el('bell-mute').checked = !on; });   // 실패하면 되돌린다
+      });
+    },
+    setUser: function (user) {
+      me = user ? { id: user.id } : null;
+      rows = [];
+      el('bell-wrap').hidden = !me;
+      if (!me) return Promise.resolve();
+      return Promise.all([load(), loadMuted()]);
+    },
+    reset: function () {
+      me = null; rows = [];
+      close();
+      el('bell-wrap').hidden = true;
+      el('bell-count').hidden = true;
+      el('bell-mute').checked = false;
+    }
+  };
+})();
 
 function boot() {
   OAUTH_ERROR = readOAuthError();     // supabase-js 가 주소를 지우기 전에 먼저 읽는다
@@ -1832,6 +2254,7 @@ function boot() {
       wireAdmin();
       wireFunctionBox();
       wireDrawer();
+      Bell.wire();
 
       CLIENT.auth.onAuthStateChange(function (event, session) {
         if (event === 'SIGNED_OUT') { enterLogin(); return; }
@@ -1984,6 +2407,7 @@ function render(rows) {
   drawChart();       // 표시된 뒤 실제 폭으로 다시 그린다
   syncScrollHint();
   updateAdminTarget();
+  openFromUrl();     // ?drawer=1 로 들어왔으면 서랍까지 펼친 채로 도착한다
 }
 
 /* 배지: 블러시 면 + 네이비 글자 (9.67:1) */
