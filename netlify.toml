@@ -15,3 +15,19 @@
   to     = "/index.html"
   status = 404
   force  = true
+
+# publish = "." 이라 폴더 전체가 올라간다. 아래 두 가지는 사이트가 아니라
+# 저장소의 기록이므로 공개 주소로 내려가지 않게 막는다.
+# 비밀값은 없지만(열쇠는 전부 환경변수·Vault), 표 구조와 정책을
+# 굳이 공개할 이유도 없다.
+[[redirects]]
+  from   = "/supabase/*"
+  to     = "/index.html"
+  status = 404
+  force  = true
+
+[[redirects]]
+  from   = "/docs/*"
+  to     = "/index.html"
+  status = 404
+  force  = true
