@@ -1978,6 +1978,40 @@ var Drawer = (function () {
     return bag.map(function (x) { return x.path; });
   }
 
+  /* ---- 슬랙 전달 결과 ------------------------------------------- *
+   *  판정과 발송은 Edge Function 이 한다. 화면은 메모 번호만 넘기고,
+   *  본문·받는 사람은 함수가 DB 에서 다시 읽는다 — 그래서 화면이
+   *  보낸 내용을 그대로 쏘거나 남의 이름으로 보낼 수 없다.
+   *  슬랙이 실패해도 메모는 이미 저장돼 있다. 등급만 알려 준다.
+   * --------------------------------------------------------------- */
+  function relaySlack(payload, note) {
+    return Promise.resolve(
+      CLIENT.functions.invoke('elaina-slack-relay', { body: payload })
+    ).then(function (res) {
+      if (res.error) throw res.error;
+      var rows = (res.data && res.data.results) || [];
+      rows.forEach(function (r) {
+        var cls, text;
+        if (r.tier === 'dm') {
+          cls = 'ok';   text = '💬 ' + r.name + '님에게 슬랙 DM 으로 갔습니다.';
+        } else if (r.tier === 'channel') {
+          cls = 'off';  text = '#️⃣ ' + r.name + '님 호출이 슬랙 채널로만 갔습니다.';
+        } else {
+          cls = 'off';  text = '🔔 ' + r.name + '님에게는 인앱 벨로만 갔습니다.';
+        }
+        if (r.detail) text += ' (' + r.detail + ')';
+        var line = h('div');
+        line.appendChild(h('span', cls, text));
+        note.appendChild(line);
+      });
+    }).catch(function (err) {
+      var line = h('div');
+      line.appendChild(h('span', 'off',
+        '슬랙 전달 상태를 확인하지 못했습니다: ' + describeError(err)));
+      note.appendChild(line);
+    });
+  }
+
   /* 서버가 돌려준 결과({notified,blocked,muted})를 같은 모양으로 바꾼다 */
   function outcomeRows(out) {
     var rows = [];
@@ -2238,6 +2272,9 @@ var Drawer = (function () {
       say(ui.memoMsg, rows.length ? '남겼습니다.' : '남겼습니다. 부른 사람은 없습니다.', 'ok');
       return loadMemos().then(refresh).then(function () {
         if (out.memo_id != null) pick(out.memo_id);
+        if (out.memo_id != null && (out.notified || []).length) {
+          return relaySlack({ memo_id: out.memo_id }, ui.memoNote);
+        }
       });
     }).catch(function (err) {
       say(ui.memoMsg, '남기지 못했습니다: ' + describeError(err), 'bad');
@@ -2269,7 +2306,11 @@ var Drawer = (function () {
       var rows = outcomeRows(out);
       drawNote(ui.replyNote, rows, false);
       say(ui.replyMsg, rows.length ? '남겼습니다.' : '남겼습니다. 부른 사람은 없습니다.', 'ok');
-      return loadReplies(id);
+      return loadReplies(id).then(function () {
+        if (out.reply_id != null && (out.notified || []).length) {
+          return relaySlack({ reply_id: out.reply_id }, ui.replyNote);
+        }
+      });
     }).catch(function (err) {
       say(ui.replyMsg, '남기지 못했습니다: ' + describeError(err), 'bad');
     }).then(function () {
