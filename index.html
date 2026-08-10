@@ -2260,19 +2260,43 @@ var Drawer = (function () {
     });
   }
 
-  /* 진짜 삭제가 아니다. deleted_at 을 찍는 UPDATE 다.
-     보내는 시각은 무시되고 서버가 now() 로 덮어쓴다. */
+  /* 글은 소프트 삭제(deleted_at)하고, 붙어 있던 캡처는 버킷에서 치운다.
+     자격 검사와 '무엇을 치울지'는 서버 함수가 정한다. 화면은 받은 경로만
+     지운다 — SQL 로는 Storage 삭제가 막혀 있어 두 단계로 나뉜다.
+     캡처는 되돌릴 수 없고, 글이 있었다는 기록은 남는다. */
   function remove(table, id, after) {
-    if (!window.confirm('지우면 내용은 보이지 않게 됩니다. 기록 자체는 남습니다. 계속할까요?')) return;
+    var isMemo = (table === T_MEMO);
+    var msgBox = isMemo ? ui.memoMsg : ui.replyMsg;
+    if (!window.confirm(
+      '지우면 내용은 보이지 않게 되고, 붙인 캡처는 버킷에서 삭제됩니다.\n' +
+      '캡처는 되돌릴 수 없습니다. 계속할까요?')) return;
+
     Promise.resolve(
-      CLIENT.from(table).update({ deleted_at: new Date().toISOString() })
-        .eq('id', id).select('id').single()
+      CLIENT.rpc(isMemo ? 'elaina_delete_memo' : 'elaina_delete_reply',
+                 isMemo ? { p_memo_id: id } : { p_reply_id: id })
     ).then(function (res) {
       if (res.error) throw res.error;
+      var paths = (res.data && res.data.paths) || [];
+      if (!paths.length) return { removed: 0, failed: 0 };
+      return Promise.resolve(CLIENT.storage.from(BUCKET).remove(paths))
+        .then(function (r) {
+          var done = (r && r.data && r.data.length) || 0;
+          return { removed: done, failed: paths.length - done, err: r && r.error };
+        })
+        .catch(function (e) { return { removed: 0, failed: paths.length, err: e }; });
+    }).then(function (out) {
+      if (out.failed) {
+        /* 조용히 넘어가지 않는다 — 글은 지워졌는데 파일이 남은 상태다 */
+        say(msgBox, '지웠습니다. 다만 캡처 ' + out.failed + '장을 버킷에서 치우지 못했습니다'
+                    + (out.err ? ': ' + describeError(out.err) : '.'), 'bad');
+      } else if (out.removed) {
+        say(msgBox, '지웠습니다. 캡처 ' + out.removed + '장도 함께 치웠습니다.', 'ok');
+      } else {
+        say(msgBox, '지웠습니다.', 'ok');
+      }
       return Promise.resolve(after()).then(refresh);
     }).catch(function (err) {
-      say(table === T_MEMO ? ui.memoMsg : ui.replyMsg,
-          '지우지 못했습니다: ' + describeError(err), 'bad');
+      say(msgBox, '지우지 못했습니다: ' + describeError(err), 'bad');
     });
   }
 
