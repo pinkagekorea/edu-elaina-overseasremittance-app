@@ -1,0 +1,1 @@
+revoke delete, truncate, references, trigger on edu.hani_notification_prefs from authenticated;
