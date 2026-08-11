@@ -9,6 +9,26 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>해외송금 대시보드</title>
 
+<!-- ---------------------------------------------------------------
+     홈 화면에 추가 (PWA) — 앱 이름표·아이콘·표시정보
+     주소창 없이 전체화면으로 열리는 것은 manifest 의 display:standalone.
+     iOS 는 manifest 만으로는 못 미더워서 apple-* 메타를 함께 둔다.
+     아이콘을 바꿀 때는 파일만 갈아 끼우면 된다 (sw.js 의 VERSION 도 올린다).
+     --------------------------------------------------------------- -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#FDFCF8">
+
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+
+<!-- iOS 는 manifest 의 아이콘을 쓰지 않는다 — 따로 알려 줘야 한다 -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="해외송금">
+<meta name="application-name" content="해외송금">
+
 <!-- Pretendard (확인함: CSS 200 / woff2 서브셋 200) — 이 문서의 유일한 서체 -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet"
@@ -3466,6 +3486,24 @@ window.addEventListener('unhandledrejection', function (e) {
 });
 
 boot();
+
+/* ------------------------------------------------------------------ *
+ *  홈 화면에 추가 — 서비스워커 등록
+ *
+ *  file:// 로 열었을 때는 등록할 수 없다 (https 또는 localhost 만 된다).
+ *  등록에 실패해도 앱은 그대로 돌아야 하므로 화면을 막지 않는다.
+ *
+ *  일부러 하지 않는 것: 새 워커가 켜졌다고 화면을 자동 새로고침하지
+ *  않는다. 메모를 쓰던 중이면 쓰던 글이 날아간다. HTML 은 어차피
+ *  네트워크 우선이라 다음 새로고침에 새 화면이 온다.
+ * ------------------------------------------------------------------ */
+if ('serviceWorker' in navigator && /^https?:$/.test(window.location.protocol)) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function (err) {
+      if (window.console && console.warn) console.warn('서비스워커 등록 실패:', err);
+    });
+  });
+}
 </script>
 </body>
 </html>
