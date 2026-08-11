@@ -2,7 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- viewport-fit=cover: 노치·홈바 영역까지 지면으로 쓰고, 안전영역은 아래 CSS 가 지킨다
+     interactive-widget=resizes-content: 키보드가 올라오면 화면 높이(dvh)도 같이 줄어
+     팝업 안 입력칸·버튼이 키보드 밑에 깔리지 않는다 -->
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>해외송금 대시보드</title>
 
 <!-- Pretendard (확인함: CSS 200 / woff2 서브셋 200) — 이 문서의 유일한 서체 -->
@@ -55,6 +59,11 @@
 
   body {
     margin: 0;
+    /* (4) 노치·홈바 — 지면 전체를 안전영역 안으로 들인다. 값이 없는 환경
+       (PC·안전영역 없는 폰)에서는 전부 0 이라 지금 모습이 그대로 유지된다.
+       화면에 직접 붙는 것(고정 팝업·모달)은 여백을 못 받으므로 각자 챈다. */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+             env(safe-area-inset-bottom) env(safe-area-inset-left);
     background: var(--ivory);
     color: var(--ink);
     font-family: 'Pretendard Variable', Pretendard, system-ui, -apple-system,
@@ -627,7 +636,10 @@
     background: var(--ivory); padding: 10px; min-height: 0;
   }
   .shot-view-body img {
-    max-width: 100%; max-height: calc(90vh - 90px);
+    max-width: 100%;
+    max-height: calc(90vh - 90px);
+    /* 모바일의 100vh 는 주소창 뒤까지 재므로 실제 보이는 높이(dvh)로 잰다 */
+    max-height: calc(90dvh - 90px);
     object-fit: contain; display: block;
   }
 
@@ -692,8 +704,26 @@
   .drawer-msg.ok  { color: var(--up); }
 
   @media (max-width: 860px) {
-    .drawer { height: calc(100vh - 24px); width: calc(100vw - 20px); }
-    .drawer-body { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+    .drawer {
+      /* 100vh 는 모바일에서 주소창 뒤 영역까지 재기 때문에 팝업 아래쪽
+         (남기기·답글 남기기 버튼)이 브라우저 UI 밑으로 잘렸다.
+         실제 보이는 높이(dvh)로 재고, 노치·홈바만큼 더 물러난다.
+         dvh 를 모르는 브라우저는 위의 vh 값을 그대로 쓴다. */
+      height: calc(100vh - 24px);
+      height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      width: calc(100vw - 20px);
+      width: calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right));
+    }
+    /* 위아래를 1fr 1fr 로 반씩 나누면 답글 칸이 비어 있어도 화면 절반을
+       먹는다 → 내용만큼만 차지하게 하고, 넘치면 팝업 안쪽이 한 덩어리로
+       세로 스크롤된다. 이 스크롤 상자가 있어야 키보드가 올라왔을 때
+       브라우저가 입력칸을 보이는 곳으로 끌어올릴 수 있다. */
+    .drawer-body {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
     .drawer-pane + .drawer-pane {
       border-left: 0; border-top: 1px solid var(--line);
     }
@@ -717,6 +747,134 @@
     th, td { padding: 9px 10px; }
     .account { width: 100%; margin-left: 0; }
     .account-email { max-width: none; flex: 1 1 auto; }
+  }
+
+  /* ================================================================
+     좁은 화면 공통 규칙 (폰)
+
+     화면마다 따로 고치지 않는다. 아래 네 규칙만 여기서 한 번 켜고,
+     새 화면이 생겨도 같은 규칙을 그대로 받게 한다. 이 블록은 480px
+     이하에서만 켜지므로 넓은 화면(PC)의 지금 모습은 건드리지 않는다.
+     글꼴 종류·색·명암은 그대로 두고, 배치·크기·넘침만 다룬다.
+
+       (1) 페이지는 가로로 스크롤되지 않는다. 넘치는 표·이미지·코드박스는
+           자기 상자 안에서만 옆으로 밀린다.
+       (2) 헤더에 뜨는 팝업은 여는 버튼이 아니라 화면을 기준으로 자리 잡는다.
+       (3) 누르는 것은 44px 이상 (카드 안 글자 버튼은 40px).
+       (4) 노치·홈바(safe-area)를 침범하지 않는다.
+     ================================================================ */
+  @media (max-width: 480px) {
+
+    :root { --tap: 44px; --tap-inline: 40px; }
+
+    /* ---- (1) 페이지는 가로로 밀리지 않는다 ---------------------- */
+
+    /* clip 은 hidden 과 달리 스크롤 상자를 만들지 않아 sticky 를 깨지 않는다 */
+    html, body { overflow-x: clip; }
+
+    img, svg, video, canvas { max-width: 100%; }
+
+    /* 끊을 자리가 없는 낱말(주소·경로·이메일·거래처명)도 상자 안에서 끊는다 */
+    pre, code, .fn-note, .error .hint, .mention-note, .bell-where, .bell-what,
+    .section-sub, .admin-note, .auth-foot, .auth-warn, .google-note, .note-line,
+    .scroll-hint, .tile .label, .tile .note, .legend, .memo-meta, .shot-view-who {
+      overflow-wrap: anywhere;
+    }
+
+    /* 상자 안에서 옆으로 밀 때, 그 동작이 페이지 뒤로가기 제스처로 새지 않게 */
+    .table-scroll, pre, .fn-out, .error pre, .auth-msg pre {
+      overscroll-behavior-x: contain;
+    }
+
+    /* 표 — 1060px 은 그대로 두고 상자 안에서만 민다. 대신 옆·아래로 밀어도
+       "어느 달 / 무슨 열"을 잃지 않게 머리글과 첫 칸을 붙여 둔다.
+       (세로 높이를 정해 주지 않으면 sticky 가 아예 걸리지 않는다) */
+    .table-scroll {
+      max-height: 68vh;
+      max-height: 68svh;
+      overflow: auto;
+    }
+    /* 머리글 둘째 줄은 첫 줄 아래에 붙는다 — 첫 줄 높이는 JS 가 재서 알려 준다 */
+    .table-scroll thead th { z-index: 3; }
+    .table-scroll thead tr:last-child th { top: var(--thead-row1, 36px); }
+    /* 왼쪽 첫 칸(송금월·거래처)은 옆으로 밀어도 남는다.
+       머리글 둘째 줄의 첫 칸은 'USD' 라서 여기서 제외한다. */
+    .table-scroll thead tr:first-child th:first-child,
+    .table-scroll tbody td:first-child,
+    .table-scroll tfoot td:first-child {
+      position: sticky; left: 0; z-index: 2;
+      background: var(--card);
+      box-shadow: 1px 0 0 var(--line);   /* 밀려 들어오는 숫자와의 경계 */
+    }
+    .table-scroll thead tr:first-child th:first-child {
+      z-index: 4; background: var(--blush);
+    }
+    .table-scroll tbody tr.vendor-row td:first-child { background: var(--ivory); }
+    .table-scroll tfoot td:first-child { background: var(--blush); }
+
+    /* 차트 툴팁 — 거래처명이 길어도 상자 밖으로 삐져나오지 않게 줄을 바꾼다.
+       숫자는 끊지 않는다. */
+    .tooltip { max-width: min(260px, calc(100vw - 24px)); }
+    .tooltip .tt-row { white-space: normal; overflow-wrap: anywhere; }
+    .tooltip .tt-row b { white-space: nowrap; }
+
+    /* ---- (2) 헤더 팝업은 화면 기준 ------------------------------ */
+
+    /* 여는 버튼 기준(right:0)으로 잡으면, 좁은 화면에서 버튼이 줄 맨 왼쪽으로
+       가면서 팝업이 화면 왼쪽 밖으로 나간다(왼쪽은 스크롤로도 못 따라간다).
+       그래서 화면에 붙인다. 헤더 팝업이 늘어나면 이 선택자에 더하면 된다. */
+    .bell-panel {
+      position: fixed;
+      top: auto;
+      left:   max(10px, env(safe-area-inset-left));
+      right:  max(10px, env(safe-area-inset-right));
+      bottom: max(10px, env(safe-area-inset-bottom));
+      width: auto;
+      max-height: 70vh;
+      max-height: min(70svh, 480px);
+      z-index: 50;
+    }
+
+    /* ---- (3) 누르는 것은 44px 이상 ------------------------------ */
+
+    /* 버튼 하나하나 손대지 않고 button 전체에 바닥값을 준다 */
+    .btn, button { min-height: var(--tap); }
+
+    /* 카드 안의 글자 버튼은 40px — 카드가 지나치게 늘어나지 않는 선 */
+    .memo-del {
+      min-height: var(--tap-inline);
+      display: inline-flex; align-items: center;
+    }
+
+    /* 겹쳐 있는 '떼기'는 위 규칙으로 키우면 썸네일을 덮는다 →
+       미리보기 자체를 키우고 떼기는 40px 로 맞춘다 */
+    div.shot { width: 84px; height: 84px; }
+    .shot-x {
+      width: 40px; height: 40px; min-height: 40px;
+      top: 0; right: 0; font-size: 13px;
+    }
+
+    /* 체크박스는 글자줄 전체가 눌리게 */
+    .bell-mute { min-height: var(--tap); }
+    .bell-mute input { width: 18px; height: 18px; flex: none; }
+
+    /* iOS 는 16px 미만 입력칸에 포커스가 가면 페이지를 강제로 확대한다.
+       확대된 채로 남아 가로 스크롤이 생기므로 입력칸만 16px 로 올린다.
+       (본문·제목 글자 크기는 그대로) */
+    input, textarea, select,
+    .field input, .drawer-form textarea { font-size: 16px; }
+    .field input { min-height: var(--tap); }
+
+    /* ---- (4) 화면에 붙는 것의 안전영역 -------------------------- */
+
+    /* body 여백을 못 받는 고정 팝업·모달만 따로 챈다 */
+    .shot-view {
+      max-width: calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right));
+      max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    }
+
+    /* 서랍 — 메모가 많아도 '남기기'가 한 화면 안에 남게 목록 높이를 묶는다 */
+    .memo-list { max-height: 46vh; max-height: 46svh; }
   }
 </style>
 </head>
@@ -2814,6 +2972,7 @@ function render(rows) {
 
   drawChart();       // 표시된 뒤 실제 폭으로 다시 그린다
   syncScrollHint();
+  syncTableHead();   // 머리글 첫 줄 높이를 재서 둘째 줄이 붙을 자리를 알려 준다
   updateAdminTarget();
   openFromUrl();     // ?drawer=1 로 들어왔으면 서랍까지 펼친 채로 도착한다
 }
@@ -3105,9 +3264,29 @@ function drawChart() {
     if (!MONTH_RE.test(k)) return k;
     return oneYear ? (parseInt(k.slice(5), 10) + '월') : k.slice(2);
   };
+
+  /* 라벨이 밴드보다 넓으면 글자끼리 겹친다. 겹치지 않을 만큼만 남기고,
+     최근 월부터 거꾸로 세어 최신 달은 언제나 적는다.
+     (한글은 글자폭 ≈ 글자크기, 숫자·영문은 그 0.62 배로 어림한다) */
+  var labelFs = narrow ? 10 : 11;
+  var textW = function (s) {
+    var w = 0;
+    for (var ci = 0; ci < s.length; ci++) {
+      w += /[ᄀ-ᇿ㄰-㆏가-힯]/.test(s.charAt(ci)) ? labelFs : labelFs * 0.62;
+    }
+    return w;
+  };
+  var widestLabel = months.reduce(function (w, m) {
+    return Math.max(w, textW(xLabel(m.key)));
+  }, 0);
+  var labelStep = Math.max(1, Math.ceil((widestLabel + 6) / band));
+  var labelAt = {};
+  for (var lb = months.length - 1; lb >= 0; lb -= labelStep) labelAt[lb] = true;
+
   el('chart-sub').textContent =
     (oneYear ? yearList[0] + '년 · ' : '') + '거래처별 누적 · 원(KRW)' +
-    (STATE.dropped.length ? ' · 지급액 0인 ' + STATE.dropped.join(', ') + ' 제외(표에는 포함)' : '');
+    (STATE.dropped.length ? ' · 지급액 0인 ' + STATE.dropped.join(', ') + ' 제외(표에는 포함)' : '') +
+    (labelStep > 1 ? ' · x축 이름은 ' + labelStep + '개월마다 (겹침 방지)' : '');
 
   var svg = svgEl('svg', {
     viewBox: '0 0 ' + W + ' ' + H,
@@ -3175,13 +3354,15 @@ function drawChart() {
       svg.appendChild(cap);
     }
 
-    /* x축 라벨 */
-    var xl = svgEl('text', {
-      x: cx, y: baseY + 18, 'text-anchor': 'middle',
-      fill: 'var(--ink)', 'font-size': narrow ? 10 : 11
-    });
-    xl.textContent = xLabel(m.key);
-    svg.appendChild(xl);
+    /* x축 라벨 — 겹치지 않는 자리에만 */
+    if (labelAt[mi]) {
+      var xl = svgEl('text', {
+        x: cx, y: baseY + 18, 'text-anchor': 'middle',
+        fill: 'var(--ink)', 'font-size': labelFs
+      });
+      xl.textContent = xLabel(m.key);
+      svg.appendChild(xl);
+    }
 
     /* 마크보다 큰 히트 영역 */
     var hit = svgEl('rect', {
@@ -3240,11 +3421,36 @@ function syncScrollHint() {
   hint.hidden = box.scrollWidth <= box.clientWidth + 1;
 }
 
+/* 좁은 화면에서 표 머리글 둘째 줄을 첫 줄 아래에 붙이려면 첫 줄 높이가
+   필요하다. 글꼴·여백이 바뀌어도 어긋나지 않게 실제로 재서 알려 준다.
+   (rowspan 이 걸린 '송금월' 칸은 두 줄 높이라서 그룹 칸을 잰다) */
+function syncTableHead() {
+  var cell = document.querySelector('.table-scroll thead tr:first-child th.grp');
+  if (!cell) return;
+  var h = Math.round(cell.getBoundingClientRect().height);
+  if (h > 0) document.documentElement.style.setProperty('--thead-row1', h + 'px');
+}
+
+/* 터치로 띄운 툴팁은 마우스처럼 '벗어나기'가 없어 화면에 붙어 남는다.
+   다른 곳을 누르거나 화면을 밀면 사라지게 한다. */
+function hideTooltip() {
+  var tip = el('tooltip');
+  if (tip) tip.style.opacity = '0';
+}
+document.addEventListener('touchstart', function (e) {
+  var host = el('chart-host');
+  if (host && host.contains(e.target)) return;
+  hideTooltip();
+}, { passive: true });
+window.addEventListener('scroll', hideTooltip, { passive: true });
+
 /* 폭이 바뀌면 다시 그린다 */
 var resizeTimer = null;
 window.addEventListener('resize', function () {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(function () { drawChart(); syncScrollHint(); }, 120);
+  resizeTimer = setTimeout(function () {
+    drawChart(); syncScrollHint(); syncTableHead();
+  }, 120);
 });
 
 /* 예기치 못한 오류도 화면에 남긴다 (로그인 화면은 덮지 않는다) */
