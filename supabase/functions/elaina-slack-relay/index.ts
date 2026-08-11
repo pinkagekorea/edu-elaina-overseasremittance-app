@@ -17,9 +17,13 @@
 //   heads-up 만 보낸다 — 웹훅이 살아 있는지 확인하는 통로다. 짝이
 //   맞아 있어도 DM 으로는 보내지 않는다.
 //
-//   화면이 보낸 내용을 그대로 쏘지 않는다. 메모 번호만 받고 본문·
-//   받는 사람은 DB 에서 다시 읽는다. 그래서 남의 이름으로 보내거나
-//   내용을 바꿔치기할 수 없다.
+//   화면이 보낸 내용을 그대로 쏘지 않는다. 번호만 받고 본문·받는 사람은
+//   DB 에서 다시 읽는다. 그래서 남의 이름으로 보내거나 내용을 바꿔치기할
+//   수 없다.
+//
+//   받는 번호 세 가지 — memo_id · reply_id · fix_request_id.
+//   수정요청(fix_request_id)은 개인 DM 을 쓰지 않고 채널로만 보낸다.
+//   특정 개인이 아니라 팀에게 가는 알림이기 때문이다.
 // ═══════════════════════════════════════════════════════════════
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -54,13 +58,94 @@ Deno.serve(async (req: Request) => {
   const me = who?.user;
   if (whoErr || !me) return json({ error: "로그인이 필요합니다." }, 401);
 
-  let body: { memo_id?: number; reply_id?: number };
+  let body: { memo_id?: number; reply_id?: number; fix_request_id?: number };
   try { body = await req.json(); } catch { return json({ error: "잘못된 요청입니다." }, 400); }
 
   const memoId = body.memo_id ?? null;
   const replyId = body.reply_id ?? null;
-  if (memoId == null && replyId == null) {
-    return json({ error: "memo_id 또는 reply_id 가 필요합니다." }, 400);
+  const fixId = body.fix_request_id ?? null;
+  if (memoId == null && replyId == null && fixId == null) {
+    return json({ error: "memo_id · reply_id · fix_request_id 중 하나가 필요합니다." }, 400);
+  }
+
+  const token = (Deno.env.get("ELAINA_SLACK_BOT_TOKEN") ?? "").trim();
+  const hook = (Deno.env.get("ELAINA_SLACK_WEBHOOK_URL") ?? "").trim();
+  let base = (Deno.env.get("ELAINA_APP_BASE_URL") ?? "").trim();
+  if (base && !/^https?:\/\/[^/]+\//.test(base)) base += "/";
+
+  async function toChannel(text: string) {
+    const r = await fetch(hook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    return r.ok ? null : `채널 실패: ${r.status}`;
+  }
+
+  // ── 수정요청 heads-up ─────────────────────────────────────────
+  //  채널로만 보낸다. 수정요청은 특정 개인이 아니라 팀에게 가는 것이므로
+  //  개인 DM 은 시도하지 않는다. 여기서 무엇이 실패해도 요청은 이미
+  //  저장돼 있다 — 등급만 남기고 200 으로 돌려준다.
+  if (fixId != null) {
+    const fx = await db.from("elaina_fix_requests")
+      .select("id, author_id, body, page_url, page_label, viewport, image_paths")
+      .eq("id", fixId).maybeSingle();
+    if (fx.error || !fx.data) return json({ error: "그런 수정요청이 없습니다." }, 404);
+    if (fx.data.author_id !== me.id) {
+      return json({ error: "본인이 올린 요청만 보낼 수 있습니다." }, 403);
+    }
+
+    // 두 번 눌러도 두 번 가지 않는다
+    const seen = await db.from("elaina_slack_deliveries")
+      .select("id").eq("fix_request_id", fixId).maybeSingle();
+    if (seen.data) {
+      return json({ results: [], has_token: !!token, has_webhook: !!hook, already: true });
+    }
+
+    const mine = await db.from("elaina_viewers")
+      .select("display_name").eq("user_id", me.id).maybeSingle();
+    const name = mine.data?.display_name ?? "누군가";
+
+    const shots = (fx.data.image_paths ?? []).length;
+    const where = fx.data.page_label || "(화면 이름 없음)";
+    const excerpt = String(fx.data.body ?? "").trim().slice(0, 300);
+    const link = /^https?:\/\//.test(String(fx.data.page_url ?? ""))
+      ? `\n<${fx.data.page_url}|→ 그 화면 열기>` : "";
+    const text = `🛠 수정요청 #${fixId} · ${where}\n` +
+      `*${name}* 님이 올렸습니다` +
+      (fx.data.viewport ? ` (화면 ${fx.data.viewport})` : "") +
+      (shots ? ` · 캡처 ${shots}장` : "") +
+      `\n>${excerpt.replace(/\n/g, "\n>")}${link}`;
+
+    let tier = "bell";
+    let detail = "";
+    try {
+      if (hook) {
+        const bad = await toChannel(text);
+        tier = bad ? "bell" : "channel";
+        detail = bad ? bad : "채널로 보냈습니다";
+      } else {
+        detail = "웹훅이 없어 아무 것도 보내지 않았습니다";
+      }
+    } catch (e) {
+      tier = "bell";
+      detail = `보내다 실패: ${e instanceof Error ? e.message : String(e)}`;
+    }
+
+    await db.from("elaina_slack_deliveries").insert({
+      fix_request_id: fixId,
+      actor_id: me.id,
+      recipient_id: me.id,          // 채널로 가므로 받는 사람은 올린 사람으로 기록
+      recipient_name: name,
+      tier,
+      detail,
+    });
+
+    return json({
+      results: [{ name: `수정요청 #${fixId}`, tier, detail: detail || undefined }],
+      has_token: !!token,
+      has_webhook: !!hook,
+    });
   }
 
   // 이 글을 쓴 사람만 자기 호출을 내보낼 수 있다
@@ -89,23 +174,10 @@ Deno.serve(async (req: Request) => {
       label: parent.data?.target_label ?? "" };
   }
 
-  const token = (Deno.env.get("ELAINA_SLACK_BOT_TOKEN") ?? "").trim();
-  const hook = (Deno.env.get("ELAINA_SLACK_WEBHOOK_URL") ?? "").trim();
-  let base = (Deno.env.get("ELAINA_APP_BASE_URL") ?? "").trim();
-  if (base && !/^https?:\/\/[^/]+\//.test(base)) base += "/";
-
   function deepLink() {
     return base
       ? `\n<${base}?t=${encodeURIComponent(target.type)}&id=${encodeURIComponent(target.id)}&drawer=1&memo=${target.memoId}|→ 그 메모 열기>`
       : "";
-  }
-  async function toChannel(text: string) {
-    const r = await fetch(hook, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    return r.ok ? null : `채널 실패: ${r.status}`;
   }
 
   const results: Array<{ name: string; tier: string; detail?: string }> = [];

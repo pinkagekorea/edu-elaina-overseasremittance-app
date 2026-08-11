@@ -770,6 +770,73 @@
   }
 
   /* ================================================================
+     수정요청 — 떠 있는 버튼 + 팝업
+     팝업은 서랍(.drawer)의 부품을 그대로 입는다. 새 색·새 반경은 없다.
+     ================================================================ */
+  .fab {
+    position: fixed;
+    right:  max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    z-index: 30;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 12px 16px; font-size: 14px;
+    background: var(--navy); color: #fff; border-color: var(--navy);  /* 9.67:1 */
+    box-shadow: var(--shadow);
+  }
+  .fab:hover { background: #16264A; }
+  .fab[hidden] { display: none; }
+
+  /* 떠 있는 버튼이 마지막 줄을 덮지 않게 지면 아래를 넉넉히 */
+  body.has-fab .wrap { padding-bottom: 96px; }
+
+  /* 한 칸짜리 팝업 */
+  .drawer.fix .drawer-body { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+
+  /* 새 요청 폼이 위, 올린 목록이 아래 (서랍은 반대라 여기서만 뒤집는다) */
+  .drawer.fix .drawer-form {
+    border-top: 0; padding-top: 0;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 12px; margin-bottom: 12px;
+  }
+
+  /* 상태 배지 — 기존 토큰만 */
+  .fix-status {
+    display: inline-block; border-radius: var(--r-badge);
+    font-size: 11px; font-weight: 800; line-height: 1.4;
+    padding: 1px 7px; flex: none;
+  }
+  .fix-status.open     { background: var(--blush); color: var(--navy); }
+  .fix-status.doing    { background: var(--navy);  color: #fff; }
+  .fix-status.done     { color: var(--up);   border: 1px solid var(--up); }
+  .fix-status.rejected { color: var(--down); border: 1px solid var(--down); }
+
+  /* 자동으로 붙는 '어디서 왔는지' */
+  .fix-where {
+    font-size: 11px; color: var(--ink-muted); line-height: 1.6;
+    margin: 8px 0 0; overflow-wrap: anywhere;
+  }
+  .fix-where b { color: var(--navy); font-weight: 800; }
+  .fix-url { font-size: 11px; color: var(--ink-muted); overflow-wrap: anywhere; }
+
+  /* 관리자 상태 조작 줄 */
+  .fix-admin {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--line);
+  }
+  .fix-admin select, .fix-admin input {
+    font: inherit; font-size: 13px; padding: 7px 9px;
+    color: var(--navy); background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--r-control);
+  }
+  .fix-admin input { flex: 1 1 150px; min-width: 0; }
+  .fix-admin .btn { flex: none; }
+  .fix-note {
+    font-size: 11px; color: var(--ink); line-height: 1.6;
+    margin: 7px 0 0; overflow-wrap: anywhere;
+  }
+  .fix-note b { color: var(--navy); font-weight: 800; }
+
+  /* ================================================================
      좁은 화면 공통 규칙 (폰)
 
      화면마다 따로 고치지 않는다. 아래 네 규칙만 여기서 한 번 켜고,
@@ -857,8 +924,8 @@
 
     /* ---- (3) 누르는 것은 44px 이상 ------------------------------ */
 
-    /* 버튼 하나하나 손대지 않고 button 전체에 바닥값을 준다 */
-    .btn, button { min-height: var(--tap); }
+    /* 버튼 하나하나 손대지 않고 button·select 전체에 바닥값을 준다 */
+    .btn, button, select { min-height: var(--tap); }
 
     /* 카드 안의 글자 버튼은 40px — 카드가 지나치게 늘어나지 않는 선 */
     .memo-del {
@@ -1082,6 +1149,13 @@
 
 </div>
 
+<!-- 수정요청 — 어느 화면에서든 누를 수 있게 화면에 떠 있다.
+     로그인한 뒤에만 보인다 (요청에는 작성자가 있어야 하므로). -->
+<button type="button" class="btn fab" id="fix-btn" hidden aria-haspopup="dialog">
+  <span aria-hidden="true">🛠</span>
+  <span>수정요청</span>
+</button>
+
 <script>
 /* ------------------------------------------------------------------ *
  *  접속 정보
@@ -1287,6 +1361,7 @@ function clearData() {
 
   Drawer.reset();                         // 서랍도 닫고 배지·명단을 버린다
   Bell.reset();                           // 알림함도 비운다
+  Fix.reset();                            // 수정요청 버튼도 감춘다
   URL_OPENED = false;                     // 다시 로그인하면 주소를 한 번 더 본다
 
   el('adminOnly').hidden = true;          // 로그아웃하면 관리자 영역도 닫는다
@@ -1337,6 +1412,7 @@ function enterApp(user) {
 
   Drawer.setUser(user);        // 서랍 배지는 로그인한 뒤에만 센다
   Bell.setUser(user);          // 알림함도 로그인한 뒤에만
+  Fix.setUser(user);           // 수정요청 버튼은 로그인한 뒤에만 뜬다
 
   showLoading();
   loadData();
@@ -2620,6 +2696,10 @@ var Drawer = (function () {
       });
     },
 
+    /* 캡처 부품을 수정요청 쪽에서도 쓴다 (같은 버킷·같은 크게보기) */
+    signPaths: signPaths,
+    viewShot: bigView,
+
     /* 알림·딥링크에서 부른다. 대상 id 만 알면 어느 서랍이든 열 수 있다. */
     openFor: function (type, id, memoId) {
       var hit = null;
@@ -2762,6 +2842,7 @@ var Bell = (function () {
     shown = true;
     el('bell-panel').hidden = false;
     el('bell-btn').setAttribute('aria-expanded', 'true');
+    Fix.setHidden(true);          // 폰에서는 알림이 화면 아래에 붙어 겹친다
     paint();
     load();
   }
@@ -2769,6 +2850,7 @@ var Bell = (function () {
     shown = false;
     el('bell-panel').hidden = true;
     el('bell-btn').setAttribute('aria-expanded', 'false');
+    Fix.setHidden(false);
   }
 
   function loadMuted() {
@@ -2816,6 +2898,505 @@ var Bell = (function () {
   };
 })();
 
+/* ------------------------------------------------------------------ *
+ *  수정요청 — 카톡·말로 흩어지던 "이거 고쳐 주세요" 를 한곳에 쌓는다
+ *
+ *  화면이 하는 일은 둘이다. 무엇이 문제인지(+캡처) 를 받고, "어느 화면에서
+ *  왔는지"(주소·화면 이름·화면 크기) 를 사용자가 적지 않아도 함께 보낸다.
+ *
+ *  막는 일은 전부 DB 가 한다:
+ *    · 작성자·시각·처음 상태는 트리거가 찍는다 (여기서 보낸 값은 버려진다)
+ *    · 자기 요청만 보인다(RLS). 전부 보는 것은 관리자뿐이다
+ *    · 상태 변경·삭제는 관리자 서버함수만 — authenticated 에는 update /
+ *      delete 권한 자체가 없다
+ *  아래에서 관리자 조작을 감추는 것은 편의일 뿐 방어선이 아니다.
+ * ------------------------------------------------------------------ */
+var Fix = (function () {
+  var T      = 'elaina_fix_requests';
+  var BUCKET = 'elaina-memo';
+  var MAX_MB = 5;
+  var LABEL  = { open: '대기', doing: '진행중', done: '완료', rejected: '반려' };
+  var STEPS  = ['open', 'doing', 'done', 'rejected'];
+
+  var dlg = null, ui = {};
+  var me = null, roster = null;
+  var rows = [], pend = [], ctx = null;
+
+  function h(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function when(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var p = function (v) { return (v < 10 ? '0' : '') + v; };
+    return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' +
+           p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function nameOf(uid, email) {
+    var list = roster || [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].user_id === uid) return list[i].display_name;
+    }
+    return (email || '').split('@')[0] || '알 수 없음';
+  }
+
+  function say(node, text, kind) {
+    node.textContent = text || '';
+    node.className = 'drawer-msg' + (kind ? ' ' + kind : '');
+  }
+
+  /* ---- 지금 보고 있는 화면 — 팝업을 열기 전에 잡아 둔다 ---------- */
+  function screenNow() {
+    var label = '';
+
+    /* 팝업이 열린 채라면 그 제목이 곧 화면 이름이다 */
+    var openDlg = document.querySelector('dialog[open]');
+    if (openDlg) {
+      var t = openDlg.querySelector('h2, h3');
+      if (t) label = t.textContent.trim();
+    }
+
+    /* 아니면 화면에 걸쳐 있는 섹션의 제목 */
+    if (!label && !el('content').hidden) {
+      var best = null, bestTop = Infinity;
+      Array.prototype.forEach.call(
+        document.querySelectorAll('#content section'), function (s) {
+          var r = s.getBoundingClientRect();
+          if (r.bottom < 60) return;             // 이미 지나간 섹션
+          if (r.top < bestTop) { bestTop = r.top; best = s; }
+        });
+      var hd = best && best.querySelector('h2');
+      if (hd) label = hd.textContent.trim();
+      else if (best) label = '요약';
+    }
+
+    if (!label) label = document.title;
+
+    return {
+      url: window.location.href,
+      label: label,
+      viewport: window.innerWidth + 'x' + window.innerHeight
+    };
+  }
+
+  /* ---- 팝업은 한 번만 만든다 ------------------------------------ */
+  function build() {
+    if (dlg) return;
+    dlg = h('dialog', 'drawer fix');
+    dlg.id = 'fix-dialog';
+    dlg.setAttribute('aria-labelledby', 'fix-title');
+
+    var head = h('div', 'drawer-head');
+    var hbox = h('div');
+    ui.title = h('h2', null, '🛠 수정요청');
+    ui.title.id = 'fix-title';
+    ui.sub = h('p', 'drawer-sub');
+    hbox.appendChild(ui.title); hbox.appendChild(ui.sub);
+    var x = h('button', 'btn btn-ghost drawer-close', '닫기');
+    x.type = 'button';
+    x.addEventListener('click', function () { dlg.close(); });
+    head.appendChild(hbox); head.appendChild(x);
+
+    var body = h('div', 'drawer-body');
+    var pane = h('section', 'drawer-pane');
+    pane.setAttribute('aria-label', '수정요청');
+
+    /* 위 — 새 요청 */
+    ui.form = h('form', 'drawer-form');
+    ui.text = document.createElement('textarea');
+    ui.text.placeholder =
+      '무엇이 문제인가요? 어떻게 되면 좋겠는지도 적어 주시면 좋습니다. 캡처는 Ctrl+V 로 바로 붙습니다.';
+    ui.text.setAttribute('aria-label', '수정요청 내용');
+    ui.shots = h('div', 'shot-strip');
+    ui.where = h('p', 'fix-where');
+    ui.msg   = h('p', 'drawer-msg');
+    ui.send  = h('button', 'btn btn-primary', '보내기');
+    ui.send.type = 'submit';
+    var acts = h('div', 'drawer-actions');
+    acts.appendChild(ui.send); acts.appendChild(ui.msg);
+    ui.form.appendChild(ui.text);
+    ui.form.appendChild(ui.shots);
+    ui.form.appendChild(ui.where);
+    ui.form.appendChild(acts);
+
+    /* 아래 — 올린 것들 */
+    var lh = h('h3', null, '올린 요청');
+    ui.count = h('span', 'badge', '0');
+    lh.appendChild(ui.count);
+    ui.list = h('ul', 'memo-list');
+
+    pane.appendChild(lh);
+    pane.appendChild(ui.form);
+    pane.appendChild(ui.list);
+    body.appendChild(pane);
+    dlg.appendChild(head); dlg.appendChild(body);
+    document.body.appendChild(dlg);
+
+    ui.form.addEventListener('submit', function (e) { e.preventDefault(); post(); });
+    wirePaste(ui.text, ui.shots, pend);
+  }
+
+  /* ---- 캡처 (Ctrl+V) — 서랍과 같은 버킷·같은 규칙 ---------------- */
+  function randomName(mime) {
+    var ext = String(mime || '').split('/')[1] || 'png';
+    if (ext === 'jpeg') ext = 'jpg';
+    ext = ext.replace(/[^a-z0-9]/gi, '').slice(0, 5) || 'png';
+    var id;
+    try { id = crypto.randomUUID().replace(/-/g, ''); }
+    catch (e) {
+      var a = new Uint8Array(16);
+      (crypto.getRandomValues ? crypto : window.msCrypto).getRandomValues(a);
+      id = Array.prototype.map.call(a, function (b) {
+        return ('0' + b.toString(16)).slice(-2);
+      }).join('');
+    }
+    return id + '.' + ext;
+  }
+
+  function wirePaste(ta, strip, bag) {
+    ta.addEventListener('paste', function (e) {
+      var items = (e.clipboardData && e.clipboardData.items) || [];
+      var files = [];
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file' && /^image\//.test(items[i].type)) {
+          var f = items[i].getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      if (!files.length) return;            // 글자 붙여넣기는 그대로 둔다
+      e.preventDefault();
+      files.forEach(function (f) { upload(f, strip, bag); });
+    });
+  }
+
+  function drawPending(strip, bag) {
+    strip.textContent = '';
+    bag.forEach(function (it, idx) {
+      var b = h('div', 'shot');
+      var img = document.createElement('img');
+      img.alt = '붙여넣은 캡처';
+      if (it.url) img.src = it.url;
+      b.appendChild(img);
+      var x = h('button', 'shot-x', '✕');
+      x.type = 'button';
+      x.title = '떼기';
+      x.setAttribute('aria-label', '캡처 떼기');
+      x.addEventListener('click', function () {
+        bag.splice(idx, 1);
+        drawPending(strip, bag);
+      });
+      b.appendChild(x);
+      strip.appendChild(b);
+    });
+  }
+
+  function upload(file, strip, bag) {
+    if (file.size > MAX_MB * 1024 * 1024) {
+      var bad = h('div', 'shot pending bad', MAX_MB + 'MB 초과');
+      strip.appendChild(bad);
+      setTimeout(function () { bad.remove(); }, 2500);
+      return;
+    }
+    var mark = h('div', 'shot pending', '올리는 중…');
+    strip.appendChild(mark);
+
+    var path = randomName(file.type);
+    Promise.resolve(
+      CLIENT.storage.from(BUCKET).upload(path, file, {
+        contentType: file.type, upsert: false
+      })
+    ).then(function (res) {
+      if (res.error) throw res.error;
+      return Drawer.signPaths([path]);          // 서랍의 서명 부품을 그대로 쓴다
+    }).then(function (map) {
+      bag.push({ path: path, url: (map && map[path]) || '' });
+      drawPending(strip, bag);
+    }).catch(function (err) {
+      mark.remove();
+      var bad2 = h('div', 'shot pending bad', '실패');
+      bad2.title = describeError(err);
+      strip.appendChild(bad2);
+      setTimeout(function () { bad2.remove(); }, 3000);
+    });
+  }
+
+  function shotStrip(paths) {
+    var strip = h('div', 'shot-strip memo-shots');
+    if (!paths || !paths.length) return strip;
+    paths.forEach(function (p) {
+      var b = h('button', 'shot');
+      b.type = 'button';
+      b.setAttribute('aria-label', '캡처 크게 보기');
+      var img = document.createElement('img');
+      img.alt = '붙여넣은 캡처';
+      img.loading = 'lazy';
+      b.appendChild(img);
+      b.addEventListener('click', function () { Drawer.viewShot(p); });
+      strip.appendChild(b);
+    });
+    Drawer.signPaths(paths).then(function (map) {
+      var imgs = strip.querySelectorAll('img');
+      paths.forEach(function (p, i) {
+        if (map[p] && imgs[i]) imgs[i].src = map[p];
+      });
+    });
+    return strip;
+  }
+
+  /* ---- 열기 ----------------------------------------------------- */
+  function open() {
+    build();
+
+    /* 팝업을 띄우기 전에 잡는다 — 띄운 뒤에는 이 팝업이 '열린 팝업' 이 된다 */
+    ctx = screenNow();
+
+    ui.text.value = '';
+    pend.length = 0;
+    ui.shots.textContent = '';
+    say(ui.msg, '');
+    ui.where.textContent = '';
+    ui.where.appendChild(document.createTextNode('이 요청은 '));
+    var b = h('b', null, '〈' + ctx.label + '〉');
+    ui.where.appendChild(b);
+    ui.where.appendChild(document.createTextNode(
+      ' 화면에서 접수됩니다 · 화면 크기 ' + ctx.viewport +
+      ' · 주소도 함께 저장되니 따로 적지 않으셔도 됩니다.'));
+
+    ui.sub.textContent = me && me.admin
+      ? '관리자로 보고 있습니다 — 모든 요청과 상태를 바꿀 수 있습니다.'
+      : '올린 요청과 그 상태만 보입니다.';
+
+    ui.list.textContent = '';
+    ui.list.appendChild(h('li', 'memo-empty', '불러오는 중…'));
+
+    if (!dlg.open) dlg.showModal();
+
+    return loadRoster().then(load);
+  }
+
+  function loadRoster() {
+    if (roster) return Promise.resolve(roster);
+    return Promise.resolve(CLIENT.rpc('elaina_mention_directory'))
+      .then(function (res) {
+        roster = (res && !res.error && res.data) ? res.data : [];
+        return roster;
+      })
+      .catch(function () { roster = []; return roster; });
+  }
+
+  function load() {
+    return Promise.resolve(
+      CLIENT.from(T).select('*').order('created_at', { ascending: false })
+    ).then(function (res) {
+      if (res.error) throw res.error;
+      rows = res.data || [];
+      draw();
+    }).catch(function (err) {
+      ui.list.textContent = '';
+      ui.list.appendChild(h('li', 'memo-empty',
+        '요청을 불러오지 못했습니다: ' + describeError(err)));
+    });
+  }
+
+  function draw() {
+    ui.count.textContent = String(rows.length);
+    ui.list.textContent = '';
+
+    if (!rows.length) {
+      ui.list.appendChild(h('li', 'memo-empty',
+        me && me.admin ? '아직 올라온 수정요청이 없습니다.'
+                       : '아직 올린 요청이 없습니다. 위에 적어 보내세요.'));
+      return;
+    }
+
+    rows.forEach(function (r) {
+      var li = document.createElement('li');
+      var card = h('div', 'memo-row');
+
+      var meta = h('div', 'memo-meta');
+      meta.appendChild(h('span', 'memo-who', nameOf(r.author_id, r.author_email)));
+      meta.appendChild(h('span', null, when(r.created_at)));
+      meta.appendChild(h('span', 'fix-status ' + r.status, LABEL[r.status] || r.status));
+      card.appendChild(meta);
+
+      card.appendChild(h('p', 'memo-body', r.body));
+
+      if (r.image_paths && r.image_paths.length) {
+        card.appendChild(shotStrip(r.image_paths));
+      }
+
+      var where = h('p', 'fix-where');
+      where.appendChild(document.createTextNode('접수된 화면 '));
+      where.appendChild(h('b', null, '〈' + (r.page_label || '이름 없음') + '〉'));
+      if (r.viewport) where.appendChild(document.createTextNode(' · ' + r.viewport));
+      card.appendChild(where);
+      card.appendChild(h('p', 'fix-url', r.page_url));
+
+      if (r.status_note) {
+        var note = h('p', 'fix-note');
+        note.appendChild(h('b', null, LABEL[r.status] || r.status));
+        note.appendChild(document.createTextNode(' · ' + r.status_note +
+          (r.status_at ? ' (' + when(r.status_at) + ')' : '')));
+        card.appendChild(note);
+      }
+
+      /* 관리자만 — 서버가 또 검사하므로 여기 감춤은 편의일 뿐이다 */
+      if (me && me.admin) card.appendChild(adminRow(r));
+
+      li.appendChild(card);
+      ui.list.appendChild(li);
+    });
+  }
+
+  function adminRow(r) {
+    var box = h('div', 'fix-admin');
+
+    var sel = document.createElement('select');
+    sel.setAttribute('aria-label', '상태');
+    STEPS.forEach(function (s) {
+      var o = document.createElement('option');
+      o.value = s; o.textContent = LABEL[s];
+      if (s === r.status) o.selected = true;
+      sel.appendChild(o);
+    });
+
+    var note = document.createElement('input');
+    note.type = 'text';
+    note.value = r.status_note || '';
+    note.placeholder = '한 줄 메모 (반려 이유 등)';
+    note.setAttribute('aria-label', '상태 메모');
+
+    var save = h('button', 'btn btn-ghost', '저장');
+    save.type = 'button';
+    var del = h('button', 'btn btn-ghost', '삭제');
+    del.type = 'button';
+
+    var msg = h('p', 'drawer-msg');
+
+    save.addEventListener('click', function () {
+      save.disabled = true; save.textContent = '저장 중…';
+      Promise.resolve(CLIENT.rpc('elaina_set_fix_status', {
+        p_id: r.id, p_status: sel.value, p_note: note.value
+      })).then(function (res) {
+        if (res.error) throw res.error;
+        return load();
+      }).catch(function (err) {
+        save.disabled = false; save.textContent = '저장';
+        say(msg, '바꾸지 못했습니다: ' + describeError(err), 'bad');
+      });
+    });
+
+    del.addEventListener('click', function () {
+      if (!window.confirm(
+        '이 수정요청을 기록에서 지웁니다.\n붙은 캡처도 함께 사라지며 되돌릴 수 없습니다.\n계속할까요?')) return;
+      del.disabled = true; del.textContent = '지우는 중…';
+      Promise.resolve(CLIENT.rpc('elaina_delete_fix_request', { p_id: r.id }))
+        .then(function (res) {
+          if (res.error) throw res.error;
+          var paths = (res.data && res.data.paths) || [];
+          if (!paths.length) return;
+          return Promise.resolve(CLIENT.storage.from(BUCKET).remove(paths)).catch(function () {});
+        })
+        .then(function () { return load(); })
+        .catch(function (err) {
+          del.disabled = false; del.textContent = '삭제';
+          say(msg, '지우지 못했습니다: ' + describeError(err), 'bad');
+        });
+    });
+
+    box.appendChild(sel); box.appendChild(note);
+    box.appendChild(save); box.appendChild(del);
+    box.appendChild(msg);
+    return box;
+  }
+
+  /* ---- 보내기 --------------------------------------------------- */
+  function post() {
+    var body  = ui.text.value.trim();
+    var shots = pend.map(function (x) { return x.path; });
+    if (!body) {
+      say(ui.msg, '무엇이 문제인지 한 줄이라도 적어 주세요.', 'bad');
+      ui.text.focus();
+      return;
+    }
+    ui.send.disabled = true; ui.send.textContent = '보내는 중…';
+    say(ui.msg, '');
+
+    var at = ctx || screenNow();
+    Promise.resolve(CLIENT.rpc('elaina_post_fix_request', {
+      p_body:        body,
+      p_image_paths: shots,
+      p_page_url:    at.url,
+      p_page_label:  at.label,
+      p_viewport:    at.viewport
+    })).then(function (res) {
+      if (res.error) throw res.error;
+      var id = res.data && res.data.id;
+      ui.text.value = '';
+      pend.length = 0; ui.shots.textContent = '';
+      say(ui.msg, '보냈습니다. 상태는 아래 목록에서 확인할 수 있습니다.', 'ok');
+      return load().then(function () {
+        if (id != null) return relay(id);     // 슬랙은 best-effort
+      });
+    }).catch(function (err) {
+      say(ui.msg, '보내지 못했습니다: ' + describeError(err), 'bad');
+    }).then(function () {
+      ui.send.disabled = false; ui.send.textContent = '보내기';
+    });
+  }
+
+  /* 슬랙 heads-up — 실패해도 요청은 이미 저장돼 있다. 등급만 알려 준다. */
+  function relay(id) {
+    return Promise.resolve(
+      CLIENT.functions.invoke('elaina-slack-relay', { body: { fix_request_id: id } })
+    ).then(function (res) {
+      if (res.error) throw res.error;
+      var out = (res.data && res.data.results) || [];
+      if (!out.length) return;
+      var r = out[0];
+      var text = r.tier === 'channel'
+        ? '#️⃣ 슬랙 채널에도 알렸습니다.'
+        : '🔔 슬랙으로는 가지 않았습니다.';
+      if (r.detail) text += ' (' + r.detail + ')';
+      say(ui.msg, ui.msg.textContent + ' ' + text,
+          r.tier === 'channel' ? 'ok' : '');
+    }).catch(function (err) {
+      say(ui.msg, ui.msg.textContent +
+        ' 슬랙 전달 상태는 확인하지 못했습니다: ' + describeError(err), '');
+    });
+  }
+
+  /* ---- 바깥에서 쓰는 것 ----------------------------------------- */
+  return {
+    wire: function () {
+      var btn = el('fix-btn');
+      if (btn) btn.addEventListener('click', function () { open(); });
+    },
+    setUser: function (user) {
+      me = user ? { id: user.id, admin: isAdmin(user.email) } : null;
+      roster = null;
+      el('fix-btn').hidden = !me;
+      document.body.classList.toggle('has-fab', !!me);
+    },
+    reset: function () {
+      me = null; roster = null; rows = []; pend.length = 0; ctx = null;
+      if (dlg && dlg.open) dlg.close();
+      el('fix-btn').hidden = true;
+      document.body.classList.remove('has-fab');
+    },
+    /* 알림함이 열리면 겹치므로 비켜 준다 */
+    setHidden: function (on) {
+      var btn = el('fix-btn');
+      if (btn && me) btn.hidden = !!on;
+    }
+  };
+})();
+
 function boot() {
   OAUTH_ERROR = readOAuthError();     // supabase-js 가 주소를 지우기 전에 먼저 읽는다
 
@@ -2841,6 +3422,7 @@ function boot() {
       wireFunctionBox();
       wireDrawer();
       Bell.wire();
+      Fix.wire();
 
       CLIENT.auth.onAuthStateChange(function (event, session) {
         if (event === 'SIGNED_OUT') { enterLogin(); return; }
