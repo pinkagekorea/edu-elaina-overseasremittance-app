@@ -257,9 +257,23 @@
      시트 두 장. 격자를 살려 스프레드시트처럼 읽히게 한다.
      송금 등록 폼은 없다 — 실적은 시트에서 들어온다.
      ------------------------------------------------------------- */
-  .nav-btn { display: inline-flex; align-items: center; gap: 6px; }
+  /* 제목 아래 화면 이동 버튼 — 네이비 면에 흰 글자 (9.67:1) */
+  .nav-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .nav-row[hidden] { display: none; }
+  .btn-nav {
+    padding: 9px 16px; font-size: 13px;
+    min-height: var(--tap-inline, 36px);
+    background: var(--navy); color: #fff; border-color: var(--navy);
+  }
+  .btn-nav:hover { background: #16264A; border-color: #16264A; }
+  /* 지금 보고 있는 화면 — 눌린 것처럼 안으로 들어가 보이게 */
+  .btn-nav[aria-current="page"] {
+    background: #16264A; border-color: var(--pink);
+    box-shadow: inset 0 0 0 1px var(--pink);
+  }
 
-  .week-bar {
+  /* 화면 위 줄 — 돌아가기 버튼과 (주간회의는) 주차 고르개 */
+  .view-bar {
     display: flex; align-items: center; justify-content: space-between;
     gap: 10px 12px; flex-wrap: wrap; margin-bottom: 14px;
   }
@@ -1131,6 +1145,13 @@
     <div class="head-main">
       <h1>해외송금 현황</h1>
       <p class="sub" id="subtitle">준비하는 중…</p>
+
+      <!-- 화면 이동 — 로그인한 뒤에만 보인다. 누르는 곳은 여기 한 군데뿐이고
+           주소(?view=…)와 뒤로가기는 JS 의 Nav 가 맞춘다. -->
+      <nav class="nav-row" id="nav-row" aria-label="화면 이동" hidden>
+        <button type="button" class="btn btn-nav" id="nav-daily">데일리 리포트</button>
+        <button type="button" class="btn btn-nav" id="nav-weekly">주간회의</button>
+      </nav>
     </div>
 
     <!-- 로그인한 사람 · 로그아웃 (오른쪽 위) -->
@@ -1154,12 +1175,6 @@
           <ul class="bell-list" id="bell-list"></ul>
         </div>
       </div>
-
-      <!-- 주간회의 — 대시보드와 성격이 달라 별도 화면으로 나간다 (?view=weekly) -->
-      <button type="button" class="btn btn-ghost nav-btn" id="nav-weekly">
-        <span aria-hidden="true">🗓</span>
-        <span>주간회의</span>
-      </button>
 
       <span class="account-email" id="account-email"></span>
       <button type="button" class="btn btn-ghost" id="logout-btn">로그아웃</button>
@@ -1225,23 +1240,6 @@
 
   <!-- 데이터가 준비되면 표시 -->
   <main id="content" hidden>
-
-    <!-- 데일리 리포트 — 매일 아침 9시에 DB(pg_cron)가 만들어 둔 스냅샷 한 줄.
-         화면은 읽기만 한다. 다시 집계하지 않으므로 지난 날짜를 고르면
-         "그날 아침의 숫자" 가 그대로 나온다. 속은 JS 의 Report 모듈이 채운다. -->
-    <section class="card" id="reportCard" aria-labelledby="report-title">
-      <div class="card-head">
-        <div class="report-head">
-          <h2 id="report-title">데일리 리포트</h2>
-          <span class="report-stamp" id="report-stamp"></span>
-        </div>
-        <select class="report-pick" id="report-date" aria-label="리포트 날짜 고르기" disabled>
-          <option>불러오는 중…</option>
-        </select>
-      </div>
-      <p class="section-sub">매일 아침 9시 자동 생성 · 달력 기준 이번 달과 전달</p>
-      <div id="report-body"></div>
-    </section>
 
     <section class="stats" id="stats" aria-label="요약"></section>
 
@@ -1331,6 +1329,31 @@
   </main>
 
   <!-- ============================================================
+       데일리 리포트 — 매일 아침 9시에 DB(pg_cron)가 만들어 둔 스냅샷 한 줄.
+       화면은 읽기만 한다. 다시 집계하지 않으므로 지난 날짜를 고르면
+       "그날 아침의 숫자" 가 그대로 나온다. 속은 JS 의 Report 모듈이 채운다.
+       ============================================================ -->
+  <main id="daily" hidden>
+    <div class="view-bar">
+      <button type="button" class="btn btn-ghost" id="daily-back">← 대시보드</button>
+    </div>
+
+    <section class="card" id="reportCard" aria-labelledby="report-title">
+      <div class="card-head">
+        <div class="report-head">
+          <h2 id="report-title">데일리 리포트</h2>
+          <span class="report-stamp" id="report-stamp"></span>
+        </div>
+        <select class="report-pick" id="report-date" aria-label="리포트 날짜 고르기" disabled>
+          <option>불러오는 중…</option>
+        </select>
+      </div>
+      <p class="section-sub">매일 아침 9시 자동 생성 · 달력 기준 이번 달과 전달</p>
+      <div id="report-body"></div>
+    </section>
+  </main>
+
+  <!-- ============================================================
        주간회의 — 대시보드와 성격이 달라 화면을 따로 쓴다.
        주소는 ?view=weekly 라 북마크·공유가 되고, 파일은 하나라
        로그인·서비스워커·PWA 설정이 두 벌이 되지 않는다.
@@ -1339,8 +1362,8 @@
        송금 실적은 시트에서 들어오고, 이 화면은 그것을 모아 보는 곳이다.
        ============================================================ -->
   <main id="weekly" hidden>
-    <div class="week-bar">
-      <button type="button" class="btn btn-ghost" id="nav-back">← 대시보드</button>
+    <div class="view-bar">
+      <button type="button" class="btn btn-ghost" id="weekly-back">← 대시보드</button>
       <div class="week-pick">
         <select id="week-year" aria-label="연도"></select>
         <select id="week-no" aria-label="주차"></select>
@@ -1423,7 +1446,8 @@ function showError(title, detail, hint) {
   status.appendChild(box);
   el('content').hidden = true;
   el('auth').hidden = true;
-  var wk = el('weekly'); if (wk) wk.hidden = true;   // 별도 화면도 함께 접는다
+  /* 별도 화면들도 함께 접는다 — 오류 카드 아래 옛 화면이 남으면 안 된다 */
+  ['daily', 'weekly'].forEach(function (id) { var n = el(id); if (n) n.hidden = true; });
 }
 
 function describeError(err) {
@@ -1594,7 +1618,7 @@ function enterLogin() {
   clearData();
 
   el('content').hidden = true;
-  el('weekly').hidden = true;              // 별도 화면도 함께 접는다
+  Nav.reset();                             // 별도 화면을 접고 주소도 되돌린다
   el('status').innerHTML = '';
   el('account').hidden = true;
   el('account-email').textContent = '';
@@ -1635,8 +1659,8 @@ function enterApp(user) {
 
   showLoading();
   loadData();
-  Report.load();               // 리포트는 따로 읽는다 — 한쪽이 실패해도 다른 쪽은 산다
-  Week.start();                // 주간회의도 마찬가지. 기본은 직전 주.
+  Week.start();                // 주차 고르개를 직전 주에 맞춰 둔다
+  Nav.start();                 // 주소가 가리키는 화면이 있으면 그리로 연다
 }
 
 function showLoading() {
@@ -4222,51 +4246,10 @@ var Week = (function () {
       });
   }
 
-  /* ── 화면 열고 닫기 ───────────────────────────────────────────── */
-  function setUrl(on, push) {
-    try {
-      var u = new URL(window.location.href);
-      if (on) u.searchParams.set('view', 'weekly');
-      else    u.searchParams.delete('view');
-      var to = u.pathname + (u.search || '') + (u.hash || '');
-      if (push) history.pushState({ view: on ? 'weekly' : '' }, '', to);
-      else      history.replaceState({ view: on ? 'weekly' : '' }, '', to);
-    } catch (e) {}
-  }
-
-  function open(push) {
-    if (MODE !== 'app') return;
-    live = true;
-    el('content').hidden = true;
-    el('status').innerHTML = '';
-    el('weekly').hidden = false;
-    if (push !== false) setUrl(true, true);
-    try { window.scrollTo(0, 0); } catch (e) {}
-
-    if (!el('week-year').options.length) setWeek(defaultWeek());
-    load();
-  }
-
-  function close(push) {
-    live = false;
-    el('weekly').hidden = true;
-    el('content').hidden = false;
-    if (push !== false) setUrl(false, true);
-    try { window.scrollTo(0, 0); } catch (e) {}
-  }
-
-  function wantsWeekly() {
-    try { return new URL(window.location.href).searchParams.get('view') === 'weekly'; }
-    catch (e) { return false; }
-  }
-
-  /* ── 배선 ─────────────────────────────────────────────────────── */
+  /* ── 배선 — 화면 이동은 Nav 가 맡는다. 여기는 고르개만. ──────── */
   function wire() {
     if (wired) return;
     wired = true;
-
-    el('nav-weekly').addEventListener('click', function () { open(true); });
-    el('nav-back').addEventListener('click', function () { close(true); });
 
     el('week-year').addEventListener('change', function () {
       var p = picked();
@@ -4276,22 +4259,121 @@ var Week = (function () {
     el('week-no').addEventListener('change', load);
     el('week-prev').addEventListener('click', function () { shift(-7 * DAY); });
     el('week-next').addEventListener('click', function () { shift(+7 * DAY); });
-
-    window.addEventListener('popstate', function () {
-      if (MODE !== 'app') return;
-      if (wantsWeekly()) open(false); else close(false);
-    });
   }
 
-  /* 로그인 직후 — 주소가 주간회의를 가리키면 그리로 연다 */
+  /* 화면이 열릴 때마다 Nav 가 부른다 — 볼 때마다 새로 읽는다 */
+  function enter() {
+    wire();
+    if (!el('week-year').options.length) setWeek(defaultWeek());
+    load();
+  }
+
+  /* 로그인 직후 한 번 — 고르개를 직전 주에 맞춰 둔다 */
   function start() {
     wire();
     setWeek(defaultWeek());
-    if (wantsWeekly()) open(false);
   }
 
-  return { start: start, open: open, close: close, isOpen: function () { return live; } };
+  return { start: start, enter: enter };
 })();
+/* ------------------------------------------------------------------ *
+ *  화면 이동 — 대시보드 · 데일리 리포트 · 주간회의
+ *
+ *    누르는 곳은 제목 아래 버튼 두 개뿐이고, 각 화면에는 돌아가는 버튼이
+ *    하나씩 있다. 주소(?view=…)와 뒤로가기를 여기 한 곳에서 맞춘다 —
+ *    화면마다 따로 맞추면 서로 어긋난다.
+ * ------------------------------------------------------------------ */
+var Nav = (function () {
+  'use strict';
+
+  var VIEWS = ['daily', 'weekly'];
+  var view  = '';                 // '' = 대시보드
+  var wired = false;
+
+  function onDashboard() { return view === ''; }
+
+  function setUrl(v, push) {
+    try {
+      var u = new URL(window.location.href);
+      if (v) u.searchParams.set('view', v); else u.searchParams.delete('view');
+      var to = u.pathname + (u.search || '') + (u.hash || '');
+      if (push) history.pushState({ view: v }, '', to);
+      else      history.replaceState({ view: v }, '', to);
+    } catch (e) {}
+  }
+
+  /* 주소가 가리키는 화면. 모르는 값이면 대시보드로 본다. */
+  function wanted() {
+    try {
+      var v = new URL(window.location.href).searchParams.get('view') || '';
+      return VIEWS.indexOf(v) === -1 ? '' : v;
+    } catch (e) { return ''; }
+  }
+
+  function apply(v) {
+    view = v;
+
+    el('content').hidden = (v !== '');
+    VIEWS.forEach(function (name) { el(name).hidden = (v !== name); });
+
+    el('nav-daily').setAttribute('aria-current',  v === 'daily'  ? 'page' : 'false');
+    el('nav-weekly').setAttribute('aria-current', v === 'weekly' ? 'page' : 'false');
+
+    /* 열 때마다 새로 읽는다 — 어제 받아 둔 숫자를 오늘 보여주지 않는다 */
+    if (v === 'daily')  Report.load();
+    if (v === 'weekly') Week.enter();
+
+    try { window.scrollTo(0, 0); } catch (e) {}
+  }
+
+  function go(v, push) {
+    if (MODE !== 'app') return;
+    apply(v);
+    setUrl(v, push !== false);
+  }
+
+  function wire() {
+    if (wired) return;
+    wired = true;
+
+    el('nav-daily').addEventListener('click',   function () { go('daily',  true); });
+    el('nav-weekly').addEventListener('click',  function () { go('weekly', true); });
+    el('daily-back').addEventListener('click',  function () { go('', true); });
+    el('weekly-back').addEventListener('click', function () { go('', true); });
+
+    window.addEventListener('popstate', function () {
+      if (MODE !== 'app') return;
+      apply(wanted());
+    });
+  }
+
+  /* 로그인 직후. 주소가 어느 화면을 가리키면 그리로 연다.
+     대시보드면 아무것도 하지 않는다 — 데이터가 다 오면 render() 가 연다.
+     (여기서 미리 열면 빈 표가 잠깐 보인다) */
+  function start() {
+    wire();
+    el('nav-row').hidden = false;
+
+    var v = wanted();
+    if (v) { go(v, false); return; }
+
+    /* 모르는 값(?view=zzz)이 붙어 있으면 주소에서 털어 낸다.
+       화면 자체는 데이터가 다 오면 render() 가 연다. */
+    view = '';
+    setUrl('', false);
+  }
+
+  /* 로그아웃 — 전부 접고 주소도 대시보드로 되돌린다 */
+  function reset() {
+    view = '';
+    VIEWS.forEach(function (name) { var n = el(name); if (n) n.hidden = true; });
+    var row = el('nav-row'); if (row) row.hidden = true;
+    setUrl('', false);
+  }
+
+  return { start: start, go: go, reset: reset, onDashboard: onDashboard };
+})();
+
 function boot() {
   OAUTH_ERROR = readOAuthError();     // supabase-js 가 주소를 지우기 전에 먼저 읽는다
 
@@ -4465,9 +4547,9 @@ function render(rows) {
     SCHEMA + '.' + TABLE + ' · ' + rows.length + '행 · ' + vendors.length + '개 거래처';
 
   el('status').innerHTML = '';
-  /* 주간회의 화면을 보고 있는 중이면(주소가 ?view=weekly) 대시보드를 밀고
-     들어오지 않는다. 데이터는 다 받아 두었으니 돌아오면 바로 보인다. */
-  if (!Week.isOpen()) el('content').hidden = false;
+  /* 다른 화면(?view=…)을 보고 있는 중이면 대시보드가 밀고 들어오지 않는다.
+     데이터는 다 받아 두었으니 돌아오면 바로 보인다. */
+  if (Nav.onDashboard()) el('content').hidden = false;
 
   drawChart();       // 표시된 뒤 실제 폭으로 다시 그린다
   syncScrollHint();
