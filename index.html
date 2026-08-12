@@ -16,7 +16,7 @@
      아이콘을 바꿀 때는 파일만 갈아 끼우면 된다 (sw.js 의 VERSION 도 올린다).
      --------------------------------------------------------------- -->
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#FDFCF8">
+<meta name="theme-color" content="#FAD9DC">
 
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
@@ -43,8 +43,8 @@
     color-scheme: light;
 
     --navy:      #1C3160;   /* 수치·제목·주 버튼 */
-    --blush:     #FAD9DC;   /* 바탕(면)·배지 전용 — 글자/1px 선 금지 */
-    --ivory:     #FDFCF8;   /* 지면 */
+    --blush:     #FAD9DC;   /* 바탕(면)·배지 전용 — 글자/1px 선 금지. 지면이 이 색이다 */
+    --ivory:     #FDFCF8;   /* 카드 안쪽의 옅은 면 (지면이 블러시가 되면서 안으로 들어왔다) */
     --pink:      #C44569;   /* 밑줄·게이지·포커스 링 전용 — 네이비 위 금지 */
     --card:      #FFFFFF;
 
@@ -90,7 +90,11 @@
        화면에 직접 붙는 것(고정 팝업·모달)은 여백을 못 받으므로 각자 챈다. */
     padding: env(safe-area-inset-top) env(safe-area-inset-right)
              env(safe-area-inset-bottom) env(safe-area-inset-left);
-    background: var(--ivory);
+    /* 지면 = 블러시(면). 이 위에 직접 놓이는 글자는 대비를 통과하는 것만 쓴다.
+       측정값: 네이비 9.67:1 · --ink 5.69:1 (둘 다 통과)
+              --ink-muted 3.62:1 · --down 4.46:1 (둘 다 미달 — 지면에 두지 않는다.
+              카드 안(흰 면 4.74:1)에서만 쓰고, 실제로 그렇게 되어 있다) */
+    background: var(--blush);
     color: var(--ink);
     font-family: 'Pretendard Variable', Pretendard, system-ui, -apple-system,
                  'Segoe UI', sans-serif;
@@ -191,13 +195,14 @@
     font-size: 11px; color: var(--ink-muted); margin-top: 6px;
     display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
   }
+  /* 으뜸 타일 — 지면이 블러시가 되면서 블러시 면으로는 구분이 안 된다.
+     다른 카드와 같은 흰 면을 쓰고, 크기(2칸·46px)로 구분한다. */
   .tile.hero {
     grid-column: 1 / -1;
-    background: var(--blush);            /* 블러시 = 면 (선에는 쓰지 않음) */
-    border-color: transparent;
+    background: var(--card);
   }
   .tile.hero .label,
-  .tile.hero .note { color: var(--ink); } /* blush 위 4.5:1 통과 색만 */
+  .tile.hero .note { color: var(--ink); }
   .tile.hero .value { font-size: 46px; line-height: 1.15; }
   @media (min-width: 640px) { .tile.hero { grid-column: span 2; } }
 
@@ -208,7 +213,7 @@
     font-size: 11px; font-weight: 800; line-height: 1.4;
     padding: 1px 7px; font-variant-numeric: tabular-nums;
   }
-  .tile.hero .badge { background: var(--card); }
+  /* 으뜸 타일도 이제 흰 면이라 배지는 다른 타일과 같은 블러시를 쓴다 */
 
   /* ---- 데일리 리포트 ----------------------------------------------
      매일 같은 자리에 같은 모양. 표 하나뿐이고 해석하는 문장은 없다.
@@ -516,7 +521,8 @@
     padding: 7px 12px; font-size: 13px;
     background: var(--card); color: var(--navy); border-color: var(--border);
   }
-  .btn-ghost:hover { background: var(--blush); }
+  /* 지면이 블러시라 눌림 표시로 블러시를 쓰면 사라진다. 옅은 아이보리로. */
+  .btn-ghost:hover { background: var(--ivory); }
 
   /* ---- 로그인 카드 ---- */
   #auth[hidden] { display: none; }
