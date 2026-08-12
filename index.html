@@ -53,8 +53,14 @@
     --line:      #ececec;   /* 1px 구분선 */
     --border:    #c9c9c9;   /* 테두리 전용 */
 
-    --up:        #1d7a5c;   /* 증가 */
-    --down:      #b23a48;   /* 감소 */
+    --up:        #1d7a5c;   /* 좋음 (초록) */
+    --down:      #b23a48;   /* 나쁨·오류 (빨강) */
+
+    /* 데일리 리포트의 증감 — 좋고 나쁨이 아니라 방향이다.
+       위의 --up/--down 은 앱 전체에서 "좋음/나쁨"으로 이미 쓰이고 있어
+       재사용하지 않는다. (white 대비: 5.36 · 6.36) */
+    --delta-up:   #b23a48;  /* 증가 = 빨강 */
+    --delta-down: #1a5fb4;  /* 감소 = 파랑 */
 
     /* 반경 4단계 */
     --r-badge:   6px;
@@ -203,6 +209,60 @@
     padding: 1px 7px; font-variant-numeric: tabular-nums;
   }
   .tile.hero .badge { background: var(--card); }
+
+  /* ---- 데일리 리포트 ----------------------------------------------
+     매일 같은 자리에 같은 모양. 표 하나뿐이고 해석하는 문장은 없다.
+     ------------------------------------------------------------- */
+  .report-head { display: flex; align-items: baseline; gap: 8px 10px; flex-wrap: wrap; }
+  .report-stamp {
+    font-size: 11px; color: var(--ink-muted);
+    font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+  }
+  .report-pick {
+    font: inherit; font-size: 13px; font-weight: 700;
+    color: var(--navy); background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--r-control);
+    padding: 7px 10px; min-height: var(--tap-inline, 34px);
+    font-variant-numeric: tabular-nums;
+  }
+  .report-pick[disabled] { opacity: .55; }
+
+  .report-scroll {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    border: 1px solid var(--border); border-radius: var(--r-control);
+  }
+  /* 월별 상세 내역의 1060px 규칙은 이 표에 맞지 않는다 (열이 넷뿐) */
+  .report-table { min-width: 460px; }
+  .report-table tbody tr:last-child td { border-bottom: 0; }
+  .report-table tbody tr:last-child th { border-bottom: 0; }
+  /* 아래 「표」 절의 `thead tr:last-child th { text-align:center }` 가 이 블록보다
+     뒤에 있어 같은 특정도로는 진다. table 을 붙여 한 단계 올린다. */
+  table.report-table thead tr th { text-align: right; }
+  table.report-table thead tr th:first-child { text-align: left; }
+  /* 항목 이름은 숫자가 아니다 — 본문색·보통 굵기 */
+  .report-table tbody th {
+    color: var(--ink); font-weight: 400;
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* 증감 — 색과 화살표 둘 다로 말한다 (색만으로는 전해지지 않으므로) */
+  .report-table td.delta { font-variant-numeric: tabular-nums; }
+  .report-table td.delta.up   { color: var(--delta-up); }
+  .report-table td.delta.down { color: var(--delta-down); }
+  .report-table td.delta.flat { color: var(--ink); font-weight: 400; }
+  .report-table td.delta .pct { font-weight: 700; }
+
+  /* 실패 — 카드 안에서만 알린다. 나머지 화면은 멀쩡하므로 덮지 않는다 */
+  .report-msg {
+    margin: 0 0 12px; padding: 10px 12px;
+    border: 1px solid var(--down); border-radius: var(--r-control);
+    color: var(--down); font-size: 12px; line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  .report-msg b { display: block; font-weight: 800; margin-bottom: 2px; }
+  .report-msg .btn { margin-top: 8px; }
+  .report-empty { font-size: 12px; color: var(--ink-muted); margin: 0; }
 
   /* ---- 표 ---- */
   .table-scroll {
@@ -1060,6 +1120,24 @@
 
   <!-- 데이터가 준비되면 표시 -->
   <main id="content" hidden>
+
+    <!-- 데일리 리포트 — 매일 아침 9시에 DB(pg_cron)가 만들어 둔 스냅샷 한 줄.
+         화면은 읽기만 한다. 다시 집계하지 않으므로 지난 날짜를 고르면
+         "그날 아침의 숫자" 가 그대로 나온다. 속은 JS 의 Report 모듈이 채운다. -->
+    <section class="card" id="reportCard" aria-labelledby="report-title">
+      <div class="card-head">
+        <div class="report-head">
+          <h2 id="report-title">데일리 리포트</h2>
+          <span class="report-stamp" id="report-stamp"></span>
+        </div>
+        <select class="report-pick" id="report-date" aria-label="리포트 날짜 고르기" disabled>
+          <option>불러오는 중…</option>
+        </select>
+      </div>
+      <p class="section-sub">매일 아침 9시 자동 생성 · 달력 기준 이번 달과 전달</p>
+      <div id="report-body"></div>
+    </section>
+
     <section class="stats" id="stats" aria-label="요약"></section>
 
     <section class="card">
@@ -1416,6 +1494,7 @@ function enterApp(user) {
 
   showLoading();
   loadData();
+  Report.load();               // 리포트는 따로 읽는다 — 한쪽이 실패해도 다른 쪽은 산다
 }
 
 function showLoading() {
@@ -3395,6 +3474,236 @@ var Fix = (function () {
       if (btn && me) btn.hidden = !!on;
     }
   };
+})();
+
+/* ------------------------------------------------------------------ *
+ *  데일리 리포트 — 매일 아침 9시의 스냅샷을 읽어 표 하나로 보여준다
+ *
+ *    만드는 것은 DB 다 (pg_cron → edu.elaina_build_daily_report).
+ *    여기서 원본을 다시 집계하지 않는다 — 다시 더하면 어느 날짜를 골라도
+ *    "지금 값" 이 나와서 지난 날짜를 고르는 뜻이 사라진다.
+ *
+ *    셈은 뺄셈과 나눗셈뿐이다. 숫자를 말로 옮기는 자리는 없다.
+ * ------------------------------------------------------------------ */
+var Report = (function () {
+  'use strict';
+
+  var T    = 'elaina_daily_reports';
+  var KEEP = 30;                    // 날짜 고르개에 담는 날 수
+
+  /* 매일 보는 숫자 둘. 순서도 이름도 매일 같다. */
+  var LINES = [
+    { label: '실제 송금액(원)', cur: 'cur_paid_krw', prev: 'prev_paid_krw' },
+    { label: '미통관 금액(원)', cur: 'cur_uncl_krw', prev: 'prev_uncl_krw' }
+  ];
+
+  var snaps = [];                   // 최신 먼저
+  var wired = false;
+
+  /* ── 시간 — 표시도 판정도 한국시간으로 ─────────────────────────── */
+  function kstToday() {
+    return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  }
+  function kstStamp(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var p = {};
+    new Intl.DateTimeFormat('ko-KR', {
+      timeZone: 'Asia/Seoul', hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit'
+    }).formatToParts(d).forEach(function (x) { p[x.type] = x.value; });
+    if (p.hour === '24') p.hour = '00';        // 자정을 24 로 주는 엔진이 있다
+    return p.year + '-' + p.month + '-' + p.day + ' ' + p.hour + ':' + p.minute;
+  }
+
+  /* ── 조각 ─────────────────────────────────────────────────────── */
+  function clear(node) { while (node && node.firstChild) node.removeChild(node.firstChild); }
+
+  function only(select, text) {
+    clear(select);
+    var o = document.createElement('option');
+    o.textContent = text;
+    select.appendChild(o);
+    select.disabled = true;
+  }
+
+  function msgBox(title, detail, retry) {
+    var d = document.createElement('div');
+    d.className = 'report-msg';
+    d.setAttribute('role', 'status');
+
+    var b = document.createElement('b');
+    b.textContent = title;
+    d.appendChild(b);
+
+    if (detail) d.appendChild(document.createTextNode(detail));
+
+    if (retry) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-ghost';
+      btn.textContent = '다시 시도';
+      btn.addEventListener('click', function () { load(); });
+      d.appendChild(btn);
+    }
+    return d;
+  }
+
+  /* 증감 — 화살표와 색 둘 다로 말한다. 색만으로는 전해지지 않는다. */
+  function deltaCell(cur, prev) {
+    var td = document.createElement('td');
+    var diff = cur - prev;
+
+    if (diff === 0) {
+      td.className = 'delta flat';
+      td.textContent = '–';
+      return td;
+    }
+
+    var up = diff > 0;
+    td.className = 'delta ' + (up ? 'up' : 'down');
+    td.appendChild(document.createTextNode(
+      (up ? '▲ ' : '▼ ') + nf0.format(Math.abs(diff))));
+
+    var pct = document.createElement('span');
+    pct.className = 'pct';
+    /* 전달이 0 이면 비율은 만들 수 없다. 0 으로 나누지 않는다. */
+    pct.textContent = prev === 0
+      ? ' (–)'
+      : ' (' + Math.abs(diff / Math.abs(prev) * 100).toFixed(1) + '%)';
+    td.appendChild(pct);
+
+    return td;
+  }
+
+  function table(row) {
+    var wrap = document.createElement('div');
+    wrap.className = 'report-scroll';
+
+    var t = document.createElement('table');
+    t.className = 'report-table';
+
+    var thead = document.createElement('thead');
+    var htr = document.createElement('tr');
+    ['항목',
+     '이번 달 (' + row.cur_month + ')',
+     '전달 (' + row.prev_month + ')',
+     '증감'].forEach(function (text) {
+      var th = document.createElement('th');
+      th.scope = 'col';
+      th.textContent = text;
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    t.appendChild(thead);
+
+    var tb = document.createElement('tbody');
+    LINES.forEach(function (line) {
+      var cur = num(row[line.cur]), prev = num(row[line.prev]);
+
+      var tr = document.createElement('tr');
+      var th = document.createElement('th');
+      th.scope = 'row';
+      th.textContent = line.label;
+      tr.appendChild(th);
+
+      tr.appendChild(moneyCell(cur, 0));     // 월별 상세 내역과 같은 규칙 (0 은 –)
+      tr.appendChild(moneyCell(prev, 0));
+      tr.appendChild(deltaCell(cur, prev));
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb);
+
+    wrap.appendChild(t);
+    return wrap;
+  }
+
+  /* ── 그리기 ───────────────────────────────────────────────────── */
+  function paint() {
+    var body = el('report-body'), pick = el('report-date');
+    if (!body || !snaps.length) return;
+
+    clear(body);
+
+    var want = pick.value;
+    var row = null;
+    for (var i = 0; i < snaps.length; i++) {
+      if (snaps[i].report_date === want) { row = snaps[i]; break; }
+    }
+    if (!row) row = snaps[0];
+
+    el('report-stamp').textContent = kstStamp(row.generated_at) + ' 생성';
+
+    /* 오늘 줄이 아예 없다 = 9시에 아무도 만들지 않았다. 먼저 알린다. */
+    if (snaps[0].report_date !== kstToday()) {
+      body.appendChild(msgBox('오늘 09:00 리포트가 없습니다',
+        '마지막 생성: ' + kstStamp(snaps[0].generated_at) +
+        ' (' + snaps[0].report_date + ' 자)'));
+    }
+
+    if (row.status === 'error') {
+      body.appendChild(msgBox(row.report_date + ' 리포트 생성 실패',
+        row.error_text || '사유가 기록되지 않았습니다.'));
+      return;                       /* 숫자를 믿을 수 없으므로 표를 그리지 않는다 */
+    }
+
+    body.appendChild(table(row));
+  }
+
+  function fillPicker() {
+    var pick = el('report-date');
+    clear(pick);
+    snaps.forEach(function (r) {
+      var o = document.createElement('option');
+      o.value = r.report_date;
+      o.textContent = r.report_date + (r.status === 'error' ? ' (실패)' : '');
+      pick.appendChild(o);
+    });
+    pick.disabled = false;
+    if (!wired) { pick.addEventListener('change', paint); wired = true; }
+  }
+
+  /* ── 읽기 ─────────────────────────────────────────────────────── */
+  function load() {
+    var body = el('report-body'), pick = el('report-date');
+    if (!body || !CLIENT) return;
+
+    clear(body);
+    el('report-stamp').textContent = '';
+    only(pick, '불러오는 중…');
+
+    Promise.resolve(
+      CLIENT.from(T).select('*').order('report_date', { ascending: false }).limit(KEEP)
+    )
+      .then(function (res) {
+        if (res.error) throw res.error;
+        snaps = res.data || [];
+
+        if (!snaps.length) {
+          only(pick, '없음');
+          var p = document.createElement('p');
+          p.className = 'report-empty';
+          p.textContent =
+            '아직 만들어진 리포트가 없습니다. 매일 아침 9시에 하루치씩 쌓입니다.';
+          body.appendChild(p);
+          return;
+        }
+
+        fillPicker();
+        paint();
+      })
+      .catch(function (err) {
+        snaps = [];
+        only(pick, '—');
+        clear(body);
+        el('report-stamp').textContent = '';
+        body.appendChild(msgBox('리포트를 불러오지 못했습니다',
+          (err && err.message) ? err.message : describeError(err), true));
+      });
+  }
+
+  return { load: load };
 })();
 
 function boot() {
