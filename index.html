@@ -253,16 +253,17 @@
   .report-table td.delta.flat { color: var(--ink); font-weight: 400; }
   .report-table td.delta .pct { font-weight: 700; }
 
-  /* ---- 주간회의 --------------------------------------------------
-     연도·주차를 고르면 그 주(월~일)의 송금·미송금을 모아 본다.
-     주 배정은 DB 의 week_date = coalesce(paid_date, due_date) 가 정한다.
+  /* ---- 주간회의 (별도 화면 ?view=weekly) --------------------------
+     시트 두 장. 격자를 살려 스프레드시트처럼 읽히게 한다.
+     송금 등록 폼은 없다 — 실적은 시트에서 들어온다.
      ------------------------------------------------------------- */
-  .week-head { display: flex; align-items: baseline; gap: 8px 10px; flex-wrap: wrap; }
-  .week-range {
-    font-size: 12px; font-weight: 700; color: var(--ink);
-    font-variant-numeric: tabular-nums;
+  .nav-btn { display: inline-flex; align-items: center; gap: 6px; }
+
+  .week-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px 12px; flex-wrap: wrap; margin-bottom: 14px;
   }
-  .week-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .week-pick { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .week-pick select {
     font: inherit; font-size: 13px; font-weight: 700;
     color: var(--navy); background: var(--card);
@@ -270,93 +271,85 @@
     padding: 7px 10px; min-height: var(--tap-inline, 34px);
     font-variant-numeric: tabular-nums;
   }
+  #week-prev, #week-next { padding: 7px 12px; font-size: 15px; line-height: 1; }
 
-  .week-group { margin-top: 16px; }
-  .week-group:first-child { margin-top: 0; }
-  .week-group h3 {
+  .week-head { display: flex; align-items: baseline; gap: 8px 10px; flex-wrap: wrap; }
+  .week-range {
+    font-size: 12px; font-weight: 700; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .week-sum {
+    font-size: 12px; color: var(--ink-muted);
+    font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+  }
+
+  .sheet-group { margin-top: 18px; }
+  .sheet-group:first-child { margin-top: 0; }
+  .sheet-group h3 {
     font-size: 13px; font-weight: 800; color: var(--navy);
     margin: 0 0 8px; display: flex; align-items: center; gap: 6px;
   }
-  .week-group h3 .count {
+  .sheet-group h3 .count {
     font-size: 11px; font-weight: 800; color: var(--navy);
     background: var(--blush); border-radius: var(--r-badge); padding: 1px 7px;
   }
 
-  .week-scroll {
+  .sheet-wrap {
     overflow-x: auto; -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
     border: 1px solid var(--border); border-radius: var(--r-control);
   }
-  .week-table { min-width: 460px; }
-  .week-table tbody tr:last-child td { border-bottom: 0; }
-  table.week-table thead tr th { text-align: right; }
-  table.week-table thead tr th:first-child { text-align: left; }
-
-  /* 미송금 — 사유·예상일을 그 자리에서 적는다. 표가 아니라 카드가 맞다. */
-  .unpaid-item {
-    border: 1px solid var(--border); border-radius: var(--r-control);
-    padding: 12px; margin-bottom: 10px; background: var(--ivory);
-  }
-  .unpaid-item:last-child { margin-bottom: 0; }
-  .unpaid-top {
-    display: flex; align-items: baseline; gap: 6px 12px; flex-wrap: wrap;
-    margin-bottom: 10px;
-  }
-  .unpaid-top .who { font-size: 14px; font-weight: 800; color: var(--navy); }
-  .unpaid-top .meta {
-    font-size: 12px; color: var(--ink-muted); font-variant-numeric: tabular-nums;
-  }
-  .unpaid-fields { display: grid; gap: 8px; }
-  .unpaid-fields label { font-size: 11px; font-weight: 700; color: var(--navy); }
-  .unpaid-fields textarea,
-  .unpaid-fields input {
-    width: 100%; font: inherit; font-size: 13px; color: var(--navy);
-    background: var(--card);
-    border: 1px solid var(--border); border-radius: var(--r-control);
+  /* 시트 — 「표」 절의 1060px 규칙 대신 열 수에 맞춘다 */
+  table.sheet { min-width: 720px; font-size: 13px; }
+  table.sheet thead tr th { text-align: center; background: var(--blush); }
+  /* 격자 — 스프레드시트는 칸이 보여야 읽힌다 */
+  table.sheet th, table.sheet td {
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
     padding: 8px 10px;
   }
-  .unpaid-fields textarea { min-height: 56px; resize: vertical; }
-  .unpaid-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .unpaid-actions .said { font-size: 11px; color: var(--ink-muted); }
-  .unpaid-actions .said.ok  { color: var(--up); font-weight: 700; }
-  .unpaid-actions .said.bad { color: var(--down); font-weight: 700; }
-  @media (min-width: 640px) {
-    .unpaid-fields { grid-template-columns: 1fr 200px; align-items: start; }
-    .unpaid-fields .f-reason { grid-column: 1; }
-    .unpaid-fields .f-date   { grid-column: 2; }
-    .unpaid-actions          { grid-column: 1 / -1; }
+  table.sheet th:last-child, table.sheet td:last-child { border-right: 0; }
+  table.sheet tbody tr:last-child td,
+  table.sheet tbody tr:last-child th { border-bottom: 0; }
+  table.sheet tbody th {
+    color: var(--navy); font-weight: 800; text-align: left; white-space: nowrap;
   }
+  table.sheet tbody td { color: var(--navy); font-weight: 700; }
+  table.sheet td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.sheet td.mid { text-align: center; font-variant-numeric: tabular-nums; }
+  table.sheet tbody tr:hover > * { background: var(--ivory); }
 
-  /* 송금 등록 — 팝업 대신 카드 안에서 편다. 팝업은 위 레이어를 차지해
-     다른 버튼을 막는데(수정요청 설계의 알려진 한계), 그럴 이유가 없다. */
-  .week-form {
-    border: 1px solid var(--border); border-radius: var(--r-control);
-    padding: 14px; margin-bottom: 14px; background: var(--ivory);
-    display: grid; gap: 10px;
-  }
-  .week-form[hidden] { display: none; }
-  .week-form .row { display: grid; gap: 10px; }
-  @media (min-width: 640px) {
-    .week-form .row.r3 { grid-template-columns: 1.4fr 1fr 1fr; }
-    .week-form .row.r2 { grid-template-columns: 1fr 1fr; }
-  }
-  .week-form label { display: block; font-size: 11px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
-  .week-form input, .week-form select {
+  /* 회의에서 적는 칸 — 시트 안에서 바로 고친다 */
+  table.sheet td.edit { padding: 4px 6px; }
+  table.sheet td.edit textarea,
+  table.sheet td.edit input {
     width: 100%; font: inherit; font-size: 13px; color: var(--navy);
     background: var(--card);
-    border: 1px solid var(--border); border-radius: var(--r-control);
-    padding: 8px 10px;
+    border: 1px solid transparent; border-radius: var(--r-badge);
+    padding: 5px 6px; font-weight: 400;
   }
-  .week-form .status-pick { display: flex; gap: 14px; align-items: center; }
-  .week-form .status-pick label {
-    display: inline-flex; align-items: center; gap: 6px; margin: 0;
-    font-size: 13px; font-weight: 700; cursor: pointer;
+  table.sheet td.edit textarea { min-height: 34px; resize: vertical; display: block; }
+  table.sheet td.edit input { font-variant-numeric: tabular-nums; }
+  table.sheet td.edit textarea:hover,
+  table.sheet td.edit input:hover { border-color: var(--border); }
+  table.sheet td.edit textarea:focus,
+  table.sheet td.edit input:focus { border-color: var(--pink); background: var(--card); }
+  table.sheet td.edit.dirty textarea,
+  table.sheet td.edit.dirty input { border-color: var(--pink); }
+
+  .sheet-foot {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-top: 10px;
   }
-  .week-form .status-pick input { width: auto; }
-  .week-form .form-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .week-form .form-msg { font-size: 11px; color: var(--down); font-weight: 700; overflow-wrap: anywhere; }
+  .sheet-foot .said { font-size: 11px; color: var(--ink-muted); }
+  .sheet-foot .said.ok  { color: var(--up);   font-weight: 700; }
+  .sheet-foot .said.bad { color: var(--down); font-weight: 700; }
 
   .week-empty { font-size: 12px; color: var(--ink-muted); margin: 0; }
+  .week-note {
+    font-size: 11px; color: var(--ink-muted); margin: 12px 0 0; line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
 
   /* 실패 — 카드 안에서만 알린다. 나머지 화면은 멀쩡하므로 덮지 않는다.
      (데일리 리포트와 주간회의가 함께 쓴다) */
@@ -1162,6 +1155,12 @@
         </div>
       </div>
 
+      <!-- 주간회의 — 대시보드와 성격이 달라 별도 화면으로 나간다 (?view=weekly) -->
+      <button type="button" class="btn btn-ghost nav-btn" id="nav-weekly">
+        <span aria-hidden="true">🗓</span>
+        <span>주간회의</span>
+      </button>
+
       <span class="account-email" id="account-email"></span>
       <button type="button" class="btn btn-ghost" id="logout-btn">로그아웃</button>
     </div>
@@ -1242,79 +1241,6 @@
       </div>
       <p class="section-sub">매일 아침 9시 자동 생성 · 달력 기준 이번 달과 전달</p>
       <div id="report-body"></div>
-    </section>
-
-    <!-- 주간회의 — 연도·주차를 고르면 그 주(월~일)의 송금·미송금을 모은다.
-         주 배정은 DB 의 생성 컬럼 week_date = coalesce(paid_date, due_date) 가
-         정한다. 화면은 계산하지 않는다. 속은 JS 의 Week 모듈이 채운다. -->
-    <section class="card" id="weekCard" aria-labelledby="week-title">
-      <div class="card-head">
-        <div class="week-head">
-          <h2 id="week-title">주간회의</h2>
-          <span class="week-range" id="week-range"></span>
-        </div>
-        <div class="week-pick">
-          <select id="week-year" aria-label="연도"></select>
-          <select id="week-no" aria-label="주차"></select>
-          <button type="button" class="btn btn-ghost" id="week-add">+ 송금 등록</button>
-        </div>
-      </div>
-      <p class="section-sub">ISO 기준 월~일 · 기본은 직전 주 · 송금일(미송금은 예정일) 기준</p>
-
-      <!-- 송금 등록 — 팝업이 아니라 카드 안에서 편다 -->
-      <form class="week-form" id="week-form" hidden>
-        <div class="row r3">
-          <div>
-            <label for="wf-vendor">업체</label>
-            <input id="wf-vendor" list="wf-vendors" autocomplete="off" required maxlength="100">
-            <datalist id="wf-vendors"></datalist>
-          </div>
-          <div>
-            <label for="wf-currency">통화</label>
-            <select id="wf-currency">
-              <option value="USD">USD</option>
-              <option value="CNY">CNY</option>
-            </select>
-          </div>
-          <div>
-            <label for="wf-amount">외화 금액</label>
-            <input id="wf-amount" type="number" step="0.01" min="0.01" required>
-          </div>
-        </div>
-
-        <div class="status-pick" role="radiogroup" aria-label="상태">
-          <label><input type="radio" name="wf-status" value="paid" checked> 송금완료</label>
-          <label><input type="radio" name="wf-status" value="unpaid"> 미송금</label>
-        </div>
-
-        <div class="row r3">
-          <div>
-            <label for="wf-due">예정 송금일</label>
-            <input id="wf-due" type="date" required>
-          </div>
-          <div id="wf-paid-wrap">
-            <label for="wf-paid">실제 송금일</label>
-            <input id="wf-paid" type="date">
-          </div>
-          <div id="wf-krw-wrap">
-            <label for="wf-krw">원화(원)</label>
-            <input id="wf-krw" type="number" step="1" min="1">
-          </div>
-        </div>
-
-        <div>
-          <label for="wf-note">비고 (선택)</label>
-          <input id="wf-note" maxlength="500">
-        </div>
-
-        <div class="form-actions">
-          <button type="submit" class="btn btn-ghost" id="wf-save">등록</button>
-          <button type="button" class="btn btn-ghost" id="wf-cancel">취소</button>
-          <span class="form-msg" id="wf-msg"></span>
-        </div>
-      </form>
-
-      <div id="week-body"></div>
     </section>
 
     <section class="stats" id="stats" aria-label="요약"></section>
@@ -1404,6 +1330,40 @@
     </section>
   </main>
 
+  <!-- ============================================================
+       주간회의 — 대시보드와 성격이 달라 화면을 따로 쓴다.
+       주소는 ?view=weekly 라 북마크·공유가 되고, 파일은 하나라
+       로그인·서비스워커·PWA 설정이 두 벌이 되지 않는다.
+
+       시트 두 장뿐이다. 송금 등록 폼은 두지 않는다 —
+       송금 실적은 시트에서 들어오고, 이 화면은 그것을 모아 보는 곳이다.
+       ============================================================ -->
+  <main id="weekly" hidden>
+    <div class="week-bar">
+      <button type="button" class="btn btn-ghost" id="nav-back">← 대시보드</button>
+      <div class="week-pick">
+        <select id="week-year" aria-label="연도"></select>
+        <select id="week-no" aria-label="주차"></select>
+        <button type="button" class="btn btn-ghost" id="week-prev" aria-label="이전 주">‹</button>
+        <button type="button" class="btn btn-ghost" id="week-next" aria-label="다음 주">›</button>
+      </div>
+    </div>
+
+    <section class="card">
+      <div class="card-head">
+        <div class="week-head">
+          <h2 id="week-title">주간회의</h2>
+          <span class="week-range" id="week-range"></span>
+        </div>
+        <span class="week-sum" id="week-sum"></span>
+      </div>
+      <p class="section-sub">
+        월~일 기준(ISO) · 기본은 직전 주 · 송금된 건은 송금일, 미송금 건은 예정일로 그 주에 잡힙니다
+      </p>
+      <div id="week-body"></div>
+    </section>
+  </main>
+
 </div>
 
 <!-- 수정요청 — 어느 화면에서든 누를 수 있게 화면에 떠 있다.
@@ -1463,6 +1423,7 @@ function showError(title, detail, hint) {
   status.appendChild(box);
   el('content').hidden = true;
   el('auth').hidden = true;
+  var wk = el('weekly'); if (wk) wk.hidden = true;   // 별도 화면도 함께 접는다
 }
 
 function describeError(err) {
@@ -1633,6 +1594,7 @@ function enterLogin() {
   clearData();
 
   el('content').hidden = true;
+  el('weekly').hidden = true;              // 별도 화면도 함께 접는다
   el('status').innerHTML = '';
   el('account').hidden = true;
   el('account-email').textContent = '';
@@ -3896,6 +3858,19 @@ var Report = (function () {
  *    송금 건을 등록하면 DB 트리거가 월별 표를 「기준선 + 건별합」 으로
  *    다시 계산한다. 이 화면은 그 사실을 몰라도 된다.
  * ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ *
+ *  주간회의 — 별도 화면 (?view=weekly)
+ *
+ *    시트 두 장뿐이다. 송금 등록 폼은 두지 않는다 — 송금 실적은
+ *    시트에서 들어오고 이 화면은 그것을 주 단위로 모아 보는 곳이다.
+ *
+ *    주 배정은 DB 가 정한다 (생성 컬럼 week_date = coalesce(paid_date,
+ *    due_date)). 화면은 범위로 걸러 읽기만 한다 — 여기서 다시 계산하면
+ *    DB 와 어긋날 자리가 생긴다.
+ *
+ *    회의에서 적는 것은 둘뿐이다: 미송금 사유 · 예상 송금일.
+ *    그 두 칸만 시트 안에서 고칠 수 있고, 나머지는 읽기 전용이다.
+ * ------------------------------------------------------------------ */
 var Week = (function () {
   'use strict';
 
@@ -3903,7 +3878,9 @@ var Week = (function () {
   var DAY = 86400000;
 
   var rows  = [];      // 이 주의 건들
+  var dirty = {};      // 아직 저장하지 않은 칸: id -> patch
   var wired = false;
+  var live  = false;   // 이 화면이 열려 있는가
 
   /* ── ISO 주 — 월요일이 한 주의 시작, 그 주 목요일이 연도를 정한다 ── */
   function utc(y, m, d) { return new Date(Date.UTC(y, m, d)); }
@@ -3925,28 +3902,27 @@ var Week = (function () {
   function weeksIn(year) { return weekOf(utc(year, 11, 28)).week; }
 
   function ymd(d) { return d.toISOString().slice(0, 10); }
-  function md(s)  { return s ? String(s).slice(5) : ''; }
+  function md(s)  { return s ? String(s).slice(5) : '–'; }
 
-  /* 한국 날짜 기준의 "오늘" */
   function kstNow() { return new Date(Date.now() + 9 * 3600 * 1000); }
 
   function defaultWeek() {
     return weekOf(new Date(weekStart(kstNow()).getTime() - 7 * DAY));   // 직전 주
   }
-
   function picked() {
-    return {
-      year: Number(el('week-year').value),
-      week: Number(el('week-no').value)
-    };
+    return { year: Number(el('week-year').value), week: Number(el('week-no').value) };
   }
 
   /* ── 조각 ─────────────────────────────────────────────────────── */
   function clear(n) { while (n && n.firstChild) n.removeChild(n.firstChild); }
 
-  function money(cur, amt) {
-    return (cur === 'USD' ? '$' : '¥') + nf2.format(num(amt));
+  function cell(tag, text, cls) {
+    var c = document.createElement(tag);
+    if (text != null) c.textContent = text;
+    if (cls) c.className = cls;
+    return c;
   }
+  function money(cur, amt) { return (cur === 'USD' ? '$' : '¥') + nf2.format(num(amt)); }
 
   function msgBox(title, detail, retry) {
     var d = document.createElement('div');
@@ -3956,8 +3932,7 @@ var Week = (function () {
     if (detail) d.appendChild(document.createTextNode(detail));
     if (retry) {
       var btn = document.createElement('button');
-      btn.type = 'button'; btn.className = 'btn btn-ghost';
-      btn.textContent = '다시 시도';
+      btn.type = 'button'; btn.className = 'btn btn-ghost'; btn.textContent = '다시 시도';
       btn.addEventListener('click', function () { load(); });
       d.appendChild(btn);
     }
@@ -3966,7 +3941,7 @@ var Week = (function () {
 
   function group(title, count) {
     var g = document.createElement('div');
-    g.className = 'week-group';
+    g.className = 'sheet-group';
     var h = document.createElement('h3');
     h.appendChild(document.createTextNode('▸ ' + title));
     var c = document.createElement('span');
@@ -3976,156 +3951,205 @@ var Week = (function () {
     return g;
   }
 
-  /* ── 송금된 업체 — 표 ─────────────────────────────────────────── */
-  function paidTable(list) {
+  function sheet(cols) {
     var wrap = document.createElement('div');
-    wrap.className = 'week-scroll';
-
+    wrap.className = 'sheet-wrap';
     var t = document.createElement('table');
-    t.className = 'week-table';
-
-    var thead = document.createElement('thead'), htr = document.createElement('tr');
-    ['업체', '송금일', '통화·금액', '원화(원)'].forEach(function (x) {
-      var th = document.createElement('th'); th.scope = 'col'; th.textContent = x;
-      htr.appendChild(th);
+    t.className = 'sheet';
+    var thead = document.createElement('thead'), tr = document.createElement('tr');
+    cols.forEach(function (c) {
+      var th = document.createElement('th');
+      th.scope = 'col'; th.textContent = c;
+      tr.appendChild(th);
     });
-    thead.appendChild(htr); t.appendChild(thead);
-
+    thead.appendChild(tr); t.appendChild(thead);
     var tb = document.createElement('tbody');
+    t.appendChild(tb);
+    wrap.appendChild(t);
+    return { wrap: wrap, body: tb };
+  }
+
+  function emptyRow(tb, cols, text) {
+    var tr = document.createElement('tr');
+    var td = cell('td', text, 'mid');
+    td.colSpan = cols;
+    td.style.color = 'var(--ink-muted)';
+    td.style.fontWeight = '400';
+    tr.appendChild(td); tb.appendChild(tr);
+  }
+
+  /* ── 시트 1 — 송금된 업체 (읽기 전용) ─────────────────────────── */
+  function paidSheet(list) {
+    var s = sheet(['업체', '예정일', '송금일', '통화', '금액', '원화(원)']);
+    if (!list.length) { emptyRow(s.body, 6, '이 주에 나간 송금이 없습니다.'); return s.wrap; }
+
     list.forEach(function (r) {
       var tr = document.createElement('tr');
-
-      var th = document.createElement('th');
-      th.scope = 'row'; th.textContent = r.vendor_name;
+      var th = cell('th', r.vendor_name); th.scope = 'row';
       tr.appendChild(th);
-
-      var d = document.createElement('td'); d.textContent = md(r.paid_date);
-      tr.appendChild(d);
-
-      var a = document.createElement('td'); a.textContent = money(r.currency, r.amount);
-      tr.appendChild(a);
-
-      tr.appendChild(moneyCell(num(r.krw), 0));
-      tb.appendChild(tr);
+      tr.appendChild(cell('td', md(r.due_date),  'mid'));
+      tr.appendChild(cell('td', md(r.paid_date), 'mid'));
+      tr.appendChild(cell('td', r.currency,      'mid'));
+      tr.appendChild(cell('td', nf2.format(num(r.amount)), 'num'));
+      tr.appendChild(cell('td', nf0.format(num(r.krw)),    'num'));
+      s.body.appendChild(tr);
     });
-    t.appendChild(tb);
-
-    wrap.appendChild(t);
-    return wrap;
+    return s.wrap;
   }
 
-  /* ── 미송금 업체 — 사유·예상일을 그 자리에서 적는다 ───────────── */
-  function unpaidItem(r) {
-    var box = document.createElement('div');
-    box.className = 'unpaid-item';
+  /* ── 시트 2 — 미송금 업체 (사유·예상일만 고칠 수 있다) ────────── */
+  function editCell(r, field, kind) {
+    var td = document.createElement('td');
+    td.className = 'edit';
 
-    var top = document.createElement('div');
-    top.className = 'unpaid-top';
-    var who = document.createElement('span');
-    who.className = 'who'; who.textContent = r.vendor_name;
-    var meta = document.createElement('span');
-    meta.className = 'meta';
-    meta.textContent = '예정 ' + md(r.due_date) + ' · ' + money(r.currency, r.amount);
-    top.appendChild(who); top.appendChild(meta);
-    box.appendChild(top);
+    var input;
+    if (kind === 'date') {
+      input = document.createElement('input');
+      input.type = 'date';
+    } else {
+      input = document.createElement('textarea');
+      input.maxLength = 500;
+      input.rows = 1;
+    }
+    input.value = r[field] || '';
+    input.setAttribute('aria-label', r.vendor_name + ' ' +
+      (field === 'unpaid_reason' ? '미송금 사유' : '예상 송금일'));
 
-    var fields = document.createElement('div');
-    fields.className = 'unpaid-fields';
+    input.addEventListener('input', function () {
+      var was = r[field] || '';
+      var now = input.value;
+      var patch = dirty[r.id] || {};
+      if (now === was) delete patch[field]; else patch[field] = now || null;
+      if (Object.keys(patch).length) dirty[r.id] = patch; else delete dirty[r.id];
+      td.className = 'edit' + (patch[field] !== undefined ? ' dirty' : '');
+      markFoot();
+    });
 
-    var fr = document.createElement('div'); fr.className = 'f-reason';
-    var lr = document.createElement('label');
-    lr.textContent = '미송금 사유';
-    lr.htmlFor = 'ur-' + r.id;
-    var ta = document.createElement('textarea');
-    ta.id = 'ur-' + r.id; ta.maxLength = 500;
-    ta.value = r.unpaid_reason || '';
-    fr.appendChild(lr); fr.appendChild(ta);
-
-    var fd = document.createElement('div'); fd.className = 'f-date';
-    var ld = document.createElement('label');
-    ld.textContent = '예상 송금일';
-    ld.htmlFor = 'ue-' + r.id;
-    var di = document.createElement('input');
-    di.id = 'ue-' + r.id; di.type = 'date';
-    di.value = r.expected_date || '';
-    fd.appendChild(ld); fd.appendChild(di);
-
-    var act = document.createElement('div');
-    act.className = 'unpaid-actions';
-    var btn = document.createElement('button');
-    btn.type = 'button'; btn.className = 'btn btn-ghost'; btn.textContent = '저장';
-    var said = document.createElement('span');
-    said.className = 'said';
-    act.appendChild(btn); act.appendChild(said);
-
-    btn.addEventListener('click', function () { save(r, ta, di, said, btn); });
-
-    fields.appendChild(fr); fields.appendChild(fd); fields.appendChild(act);
-    box.appendChild(fields);
-    return box;
+    td.appendChild(input);
+    return td;
   }
 
-  function save(r, ta, di, said, btn) {
-    btn.disabled = true;
-    said.className = 'said'; said.textContent = '저장 중…';
+  function unpaidSheet(list) {
+    var s = sheet(['업체', '예정일', '통화', '금액', '미송금 사유', '예상 송금일']);
+    if (!list.length) { emptyRow(s.body, 6, '미송금 건이 없습니다.'); return s.wrap; }
 
-    var patch = {
-      unpaid_reason: ta.value.trim() || null,
-      expected_date: di.value || null
-    };
+    list.forEach(function (r) {
+      var tr = document.createElement('tr');
+      var th = cell('th', r.vendor_name); th.scope = 'row';
+      tr.appendChild(th);
+      tr.appendChild(cell('td', md(r.due_date), 'mid'));
+      tr.appendChild(cell('td', r.currency,     'mid'));
+      tr.appendChild(cell('td', nf2.format(num(r.amount)), 'num'));
+      tr.appendChild(editCell(r, 'unpaid_reason', 'text'));
+      tr.appendChild(editCell(r, 'expected_date', 'date'));
+      s.body.appendChild(tr);
+    });
+    return s.wrap;
+  }
 
-    Promise.resolve(CLIENT.from(T).update(patch).eq('id', r.id).select('id'))
-      .then(function (res) {
-        if (res.error) throw res.error;
-        /* 줄 수를 센다 — RLS 가 막으면 오류 없이 0줄이 돌아온다 */
-        if (!res.data || !res.data.length) {
-          throw new Error('저장된 줄이 0건입니다. 권한을 확인해 주세요.');
-        }
-        r.unpaid_reason = patch.unpaid_reason;
-        r.expected_date = patch.expected_date;
-        said.className = 'said ok'; said.textContent = '저장됨';
+  /* ── 저장 — 바뀐 칸만 모아서 한 번에 ──────────────────────────── */
+  var footBtn = null, footSaid = null;
+
+  function markFoot() {
+    if (!footBtn) return;
+    var n = Object.keys(dirty).length;
+    footBtn.disabled = (n === 0);
+    footBtn.textContent = n ? ('저장 (' + n + '줄)') : '저장';
+    if (footSaid && n) { footSaid.className = 'said'; footSaid.textContent = '저장하지 않은 칸이 있습니다.'; }
+  }
+
+  function saveAll() {
+    var ids = Object.keys(dirty);
+    if (!ids.length) return;
+
+    footBtn.disabled = true;
+    footSaid.className = 'said'; footSaid.textContent = '저장 중…';
+
+    var jobs = ids.map(function (id) {
+      var patch = dirty[id];
+      return Promise.resolve(CLIENT.from(T).update(patch).eq('id', Number(id)).select('id'))
+        .then(function (res) {
+          if (res.error) throw res.error;
+          /* 줄 수를 센다 — RLS 가 막으면 오류 없이 0줄이 돌아온다 */
+          if (!res.data || !res.data.length) {
+            throw new Error(id + '번 줄이 저장되지 않았습니다 (권한 확인 필요).');
+          }
+          /* 화면이 들고 있는 값도 같이 옮긴다 */
+          rows.forEach(function (r) {
+            if (String(r.id) === String(id)) {
+              Object.keys(patch).forEach(function (k) { r[k] = patch[k]; });
+            }
+          });
+          return id;
+        });
+    });
+
+    Promise.all(jobs)
+      .then(function () {
+        dirty = {};
+        paint();
+        if (footSaid) { footSaid.className = 'said ok'; footSaid.textContent = '저장됨'; }
       })
       .catch(function (err) {
-        said.className = 'said bad';
-        said.textContent = (err && err.message) ? err.message : '저장하지 못했습니다';
-      })
-      .then(function () { btn.disabled = false; });
+        /* 버튼을 먼저 되살린다 — markFoot 은 안내 문구도 다시 쓰므로
+           그 뒤에 사유를 적어야 지워지지 않는다 */
+        markFoot();
+        footSaid.className = 'said bad';
+        footSaid.textContent = (err && err.message) ? err.message : '저장하지 못했습니다';
+      });
   }
 
   /* ── 그리기 ───────────────────────────────────────────────────── */
+  function summarize(paid, unpaid) {
+    var krw = 0;
+    paid.forEach(function (r) { krw += num(r.krw); });
+    var parts = [];
+    parts.push('송금 ' + paid.length + '건');
+    if (paid.length) parts.push(nf0.format(krw) + '원');
+    parts.push('미송금 ' + unpaid.length + '건');
+    el('week-sum').textContent = parts.join(' · ');
+  }
+
   function paint() {
     var body = el('week-body');
     if (!body) return;
     clear(body);
+    footBtn = footSaid = null;
 
     var paid   = rows.filter(function (r) { return r.status === 'paid'; });
     var unpaid = rows.filter(function (r) { return r.status === 'unpaid'; });
-
-    if (!rows.length) {
-      var p = document.createElement('p');
-      p.className = 'week-empty';
-      p.textContent = '이 주에 등록된 송금이 없습니다. 「+ 송금 등록」 으로 넣으면 여기에 모입니다.';
-      body.appendChild(p);
-      return;
-    }
+    summarize(paid, unpaid);
 
     var g1 = group('송금된 업체', paid.length);
-    if (paid.length) g1.appendChild(paidTable(paid));
-    else {
-      var e1 = document.createElement('p');
-      e1.className = 'week-empty'; e1.textContent = '이 주에 나간 송금이 없습니다.';
-      g1.appendChild(e1);
-    }
+    g1.appendChild(paidSheet(paid));
     body.appendChild(g1);
 
     var g2 = group('미송금 업체', unpaid.length);
-    if (unpaid.length) unpaid.forEach(function (r) { g2.appendChild(unpaidItem(r)); });
-    else {
-      var e2 = document.createElement('p');
-      e2.className = 'week-empty'; e2.textContent = '미송금 건이 없습니다.';
-      g2.appendChild(e2);
+    g2.appendChild(unpaidSheet(unpaid));
+
+    if (unpaid.length) {
+      var foot = document.createElement('div');
+      foot.className = 'sheet-foot';
+      footBtn = document.createElement('button');
+      footBtn.type = 'button'; footBtn.className = 'btn btn-ghost';
+      footBtn.textContent = '저장'; footBtn.disabled = true;
+      footBtn.addEventListener('click', saveAll);
+      footSaid = document.createElement('span');
+      footSaid.className = 'said';
+      footSaid.textContent = '사유·예상 송금일을 고치면 저장할 수 있습니다.';
+      foot.appendChild(footBtn); foot.appendChild(footSaid);
+      g2.appendChild(foot);
     }
     body.appendChild(g2);
+
+    var note = document.createElement('p');
+    note.className = 'week-note';
+    note.textContent = rows.length
+      ? '※ 송금 실적은 연결된 시트에서 들어옵니다. 사유·예상 송금일은 이 화면에서 적습니다.'
+      : '※ 이 주에 취합된 송금이 없습니다. 송금 실적은 연결된 시트에서 들어오며, 시트를 아직 연결하지 않았다면 계속 비어 있습니다.';
+    body.appendChild(note);
+
+    markFoot();
   }
 
   /* ── 고르개 ───────────────────────────────────────────────────── */
@@ -4137,9 +4161,8 @@ var Week = (function () {
       o.value = String(w); o.textContent = w + '주';
       sel.appendChild(o);
     }
-    sel.value = String(Math.min(want || 1, n));
+    sel.value = String(Math.min(Math.max(want || 1, 1), n));
   }
-
   function fillYears(year) {
     var sel = el('week-year');
     clear(sel);
@@ -4149,6 +4172,13 @@ var Week = (function () {
       sel.appendChild(o);
     }
     sel.value = String(year);
+  }
+  function setWeek(w) { fillYears(w.year); fillWeeks(w.year, w.week); }
+
+  function shift(days) {
+    var p = picked();
+    setWeek(weekOf(new Date(startOf(p.year, p.week).getTime() + days)));
+    load();
   }
 
   function showRange() {
@@ -4165,6 +4195,7 @@ var Week = (function () {
     if (!body || !CLIENT) return;
 
     var span = showRange();
+    dirty = {};
     clear(body);
     var wait = document.createElement('p');
     wait.className = 'week-empty'; wait.textContent = '불러오는 중…';
@@ -4184,114 +4215,49 @@ var Week = (function () {
       })
       .catch(function (err) {
         rows = [];
+        el('week-sum').textContent = '';
         clear(body);
         body.appendChild(msgBox('주간회의 자료를 불러오지 못했습니다',
           (err && err.message) ? err.message : describeError(err), true));
       });
   }
 
-  /* ── 등록 폼 ──────────────────────────────────────────────────── */
-  function statusNow() {
-    var r = document.querySelector('input[name="wf-status"]:checked');
-    return r ? r.value : 'paid';
+  /* ── 화면 열고 닫기 ───────────────────────────────────────────── */
+  function setUrl(on, push) {
+    try {
+      var u = new URL(window.location.href);
+      if (on) u.searchParams.set('view', 'weekly');
+      else    u.searchParams.delete('view');
+      var to = u.pathname + (u.search || '') + (u.hash || '');
+      if (push) history.pushState({ view: on ? 'weekly' : '' }, '', to);
+      else      history.replaceState({ view: on ? 'weekly' : '' }, '', to);
+    } catch (e) {}
   }
 
-  function syncFormShape() {
-    var isPaid = statusNow() === 'paid';
-    el('wf-paid').disabled = !isPaid;
-    el('wf-krw').disabled  = !isPaid;
-    if (!isPaid) { el('wf-paid').value = ''; el('wf-krw').value = ''; }
-    el('wf-paid-wrap').style.opacity = isPaid ? '' : '.5';
-    el('wf-krw-wrap').style.opacity  = isPaid ? '' : '.5';
+  function open(push) {
+    if (MODE !== 'app') return;
+    live = true;
+    el('content').hidden = true;
+    el('status').innerHTML = '';
+    el('weekly').hidden = false;
+    if (push !== false) setUrl(true, true);
+    try { window.scrollTo(0, 0); } catch (e) {}
+
+    if (!el('week-year').options.length) setWeek(defaultWeek());
+    load();
   }
 
-  function fillVendors() {
-    var dl = el('wf-vendors');
-    clear(dl);
-    var seen = {}, names = [];
-    (STATE && STATE.vendors ? STATE.vendors : []).forEach(function (v) {
-      if (v && v !== '(미지정)' && !seen[v]) { seen[v] = 1; names.push(v); }
-    });
-    rows.forEach(function (r) {
-      if (r.vendor_name && !seen[r.vendor_name]) { seen[r.vendor_name] = 1; names.push(r.vendor_name); }
-    });
-    names.forEach(function (v) {
-      var o = document.createElement('option'); o.value = v; dl.appendChild(o);
-    });
+  function close(push) {
+    live = false;
+    el('weekly').hidden = true;
+    el('content').hidden = false;
+    if (push !== false) setUrl(false, true);
+    try { window.scrollTo(0, 0); } catch (e) {}
   }
 
-  function openForm() {
-    var f = el('week-form');
-    fillVendors();
-    el('wf-msg').textContent = '';
-    /* 예정일 기본값 = 보고 있는 주의 월요일 */
-    if (!el('wf-due').value) el('wf-due').value = showRange().start;
-    syncFormShape();
-    f.hidden = false;
-    try { el('wf-vendor').focus(); } catch (e) {}
-  }
-
-  function closeForm() {
-    var f = el('week-form');
-    f.hidden = true;
-    ['wf-vendor','wf-amount','wf-due','wf-paid','wf-krw','wf-note'].forEach(function (id) {
-      el(id).value = '';
-    });
-    el('wf-msg').textContent = '';
-  }
-
-  function submitForm(e) {
-    e.preventDefault();
-    var msg = el('wf-msg');
-    msg.textContent = '';
-
-    var status = statusNow();
-    var vendor = el('wf-vendor').value.trim();
-    var amount = Number(el('wf-amount').value);
-    var due    = el('wf-due').value;
-    var paid   = el('wf-paid').value;
-    var krwRaw = el('wf-krw').value;
-    var krw    = krwRaw === '' ? null : Number(krwRaw);
-
-    if (!vendor)        { msg.textContent = '업체를 적어 주세요.'; return; }
-    if (!(amount > 0))  { msg.textContent = '외화 금액은 0보다 커야 합니다.'; return; }
-    if (!due)           { msg.textContent = '예정 송금일을 골라 주세요.'; return; }
-    if (status === 'paid') {
-      if (!paid)        { msg.textContent = '송금완료는 실제 송금일이 필요합니다.'; return; }
-      if (!(krw > 0))   { msg.textContent = '송금완료는 원화 금액이 필요합니다 — 월별 표에 합산되는 값입니다.'; return; }
-    }
-
-    var payload = {
-      vendor_name: vendor,
-      currency:    el('wf-currency').value,
-      amount:      amount,
-      due_date:    due,
-      status:      status,
-      paid_date:   status === 'paid' ? paid : null,
-      krw:         status === 'paid' ? krw  : null,
-      note:        el('wf-note').value.trim() || null
-    };
-
-    el('wf-save').disabled = true;
-    msg.textContent = '등록 중…';
-
-    Promise.resolve(CLIENT.from(T).insert(payload).select('*'))
-      .then(function (res) {
-        if (res.error) throw res.error;
-        var made = res.data && res.data[0];
-        closeForm();
-
-        /* 새 건이 든 주로 옮겨 간다 — 다른 주였다면 지금 화면에선 안 보인다 */
-        if (made && made.week_date) {
-          var w = weekOf(new Date(made.week_date + 'T00:00:00Z'));
-          fillYears(w.year); fillWeeks(w.year, w.week);
-        }
-        load();
-      })
-      .catch(function (err) {
-        msg.textContent = (err && err.message) ? err.message : '등록하지 못했습니다';
-      })
-      .then(function () { el('wf-save').disabled = false; });
+  function wantsWeekly() {
+    try { return new URL(window.location.href).searchParams.get('view') === 'weekly'; }
+    catch (e) { return false; }
   }
 
   /* ── 배선 ─────────────────────────────────────────────────────── */
@@ -4299,37 +4265,33 @@ var Week = (function () {
     if (wired) return;
     wired = true;
 
+    el('nav-weekly').addEventListener('click', function () { open(true); });
+    el('nav-back').addEventListener('click', function () { close(true); });
+
     el('week-year').addEventListener('change', function () {
       var p = picked();
       fillWeeks(p.year, p.week);
       load();
     });
     el('week-no').addEventListener('change', load);
+    el('week-prev').addEventListener('click', function () { shift(-7 * DAY); });
+    el('week-next').addEventListener('click', function () { shift(+7 * DAY); });
 
-    el('week-add').addEventListener('click', function () {
-      var f = el('week-form');
-      if (f.hidden) openForm(); else closeForm();
+    window.addEventListener('popstate', function () {
+      if (MODE !== 'app') return;
+      if (wantsWeekly()) open(false); else close(false);
     });
-    el('wf-cancel').addEventListener('click', closeForm);
-    el('week-form').addEventListener('submit', submitForm);
-
-    var radios = document.querySelectorAll('input[name="wf-status"]');
-    for (var i = 0; i < radios.length; i++) {
-      radios[i].addEventListener('change', syncFormShape);
-    }
   }
 
+  /* 로그인 직후 — 주소가 주간회의를 가리키면 그리로 연다 */
   function start() {
     wire();
-    var d = defaultWeek();
-    fillYears(d.year);
-    fillWeeks(d.year, d.week);
-    load();
+    setWeek(defaultWeek());
+    if (wantsWeekly()) open(false);
   }
 
-  return { start: start };
+  return { start: start, open: open, close: close, isOpen: function () { return live; } };
 })();
-
 function boot() {
   OAUTH_ERROR = readOAuthError();     // supabase-js 가 주소를 지우기 전에 먼저 읽는다
 
@@ -4503,7 +4465,9 @@ function render(rows) {
     SCHEMA + '.' + TABLE + ' · ' + rows.length + '행 · ' + vendors.length + '개 거래처';
 
   el('status').innerHTML = '';
-  el('content').hidden = false;
+  /* 주간회의 화면을 보고 있는 중이면(주소가 ?view=weekly) 대시보드를 밀고
+     들어오지 않는다. 데이터는 다 받아 두었으니 돌아오면 바로 보인다. */
+  if (!Week.isOpen()) el('content').hidden = false;
 
   drawChart();       // 표시된 뒤 실제 폭으로 다시 그린다
   syncScrollHint();
