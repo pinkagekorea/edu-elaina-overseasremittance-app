@@ -317,7 +317,7 @@
     border: 1px solid var(--border); border-radius: var(--r-control);
   }
   /* 시트 — 「표」 절의 1060px 규칙 대신 열 수에 맞춘다 */
-  table.sheet { min-width: 720px; font-size: 13px; }
+  table.sheet { min-width: 640px; font-size: 13px; }   /* 열을 하나 뺐다 */
   table.sheet thead tr th { text-align: center; background: var(--blush); }
   /* 격자 — 스프레드시트는 칸이 보여야 읽힌다 */
   table.sheet th, table.sheet td {
@@ -338,13 +338,16 @@
 
   /* 회의에서 적는 칸 — 시트 안에서 바로 고친다 */
   table.sheet td.edit { padding: 4px 6px; }
+  /* 적을 수 있는 칸이라는 것이 눈에 보여야 한다. 투명 테두리는 그냥
+     글자로 읽혀서, 비어 있을 때 쓸 수 있는 칸인지 알 수 없다. */
   table.sheet td.edit textarea,
   table.sheet td.edit input {
     width: 100%; font: inherit; font-size: 13px; color: var(--navy);
     background: var(--card);
-    border: 1px solid transparent; border-radius: var(--r-badge);
+    border: 1px solid var(--line); border-radius: var(--r-badge);
     padding: 5px 6px; font-weight: 400;
   }
+  table.sheet td.edit textarea::placeholder { color: var(--ink-muted); }
   table.sheet td.edit textarea { min-height: 34px; resize: vertical; display: block; }
   table.sheet td.edit input { font-variant-numeric: tabular-nums; }
   table.sheet td.edit textarea:hover,
@@ -4010,14 +4013,13 @@ var Week = (function () {
 
   /* ── 시트 1 — 송금된 업체 (읽기 전용) ─────────────────────────── */
   function paidSheet(list) {
-    var s = sheet(['업체', '예정일', '송금일', '통화', '금액', '원화(원)']);
-    if (!list.length) { emptyRow(s.body, 6, '이 주에 나간 송금이 없습니다.'); return s.wrap; }
+    var s = sheet(['업체', '송금일', '통화', '금액', '원화(원)']);
+    if (!list.length) { emptyRow(s.body, 5, '이 주에 나간 송금이 없습니다.'); return s.wrap; }
 
     list.forEach(function (r) {
       var tr = document.createElement('tr');
       var th = cell('th', r.vendor_name); th.scope = 'row';
       tr.appendChild(th);
-      tr.appendChild(cell('td', md(r.due_date),  'mid'));
       tr.appendChild(cell('td', md(r.paid_date), 'mid'));
       tr.appendChild(cell('td', r.currency,      'mid'));
       tr.appendChild(cell('td', nf2.format(num(r.amount)), 'num'));
@@ -4040,6 +4042,7 @@ var Week = (function () {
       input = document.createElement('textarea');
       input.maxLength = 500;
       input.rows = 1;
+      input.placeholder = '사유를 적어 주세요';
     }
     input.value = r[field] || '';
     input.setAttribute('aria-label', r.vendor_name + ' ' +
@@ -4060,14 +4063,13 @@ var Week = (function () {
   }
 
   function unpaidSheet(list) {
-    var s = sheet(['업체', '예정일', '통화', '금액', '미송금 사유', '예상 송금일']);
-    if (!list.length) { emptyRow(s.body, 6, '미송금 건이 없습니다.'); return s.wrap; }
+    var s = sheet(['업체', '통화', '금액', '미송금 사유', '예상 송금일']);
+    if (!list.length) { emptyRow(s.body, 5, '미송금 건이 없습니다.'); return s.wrap; }
 
     list.forEach(function (r) {
       var tr = document.createElement('tr');
       var th = cell('th', r.vendor_name); th.scope = 'row';
       tr.appendChild(th);
-      tr.appendChild(cell('td', md(r.due_date), 'mid'));
       tr.appendChild(cell('td', r.currency,     'mid'));
       tr.appendChild(cell('td', nf2.format(num(r.amount)), 'num'));
       tr.appendChild(editCell(r, 'unpaid_reason', 'text'));
