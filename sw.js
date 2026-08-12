@@ -16,7 +16,7 @@
      4) 새 버전은 대기하지 않는다 (skipWaiting + clients.claim).
    ================================================================== */
 
-const VERSION = 'v7';                      // ← 배포할 때마다 이 숫자만 올린다
+const VERSION = 'v8';                      // ← 배포할 때마다 이 숫자만 올린다
 const CACHE   = 'day8-' + VERSION;
 
 /* 오프라인에서도 화면이 뜨도록 미리 담아 두는 껍데기 (모두 같은 출처) */
@@ -49,7 +49,7 @@ const OFFLINE_PAGE = `<!doctype html>
 <style>
   body { margin:0; min-height:100dvh; display:flex; align-items:center; justify-content:center;
          padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
-         background:#FAD9DC; color:#555; font-size:14px; line-height:1.6;
+         background:#FDFCF8; color:#555; font-size:14px; line-height:1.6;
          font-family: Pretendard, system-ui, -apple-system, 'Segoe UI', sans-serif; }
   .box { background:#fff; border:1px solid #c9c9c9; border-radius:14px; padding:20px; max-width:360px; }
   h1 { font-size:17px; font-weight:700; color:#1C3160; margin:0 0 8px; }
