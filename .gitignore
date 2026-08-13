@@ -64,3 +64,6 @@ desktop.ini
 _check.js
 _t*.html
 _e2e*.html
+
+# 개인 설정 — 사람마다 다르므로 올리지 않는다
+.claude/settings.local.json

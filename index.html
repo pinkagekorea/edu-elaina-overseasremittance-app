@@ -978,11 +978,93 @@
   .fab:hover { background: #16264A; }
   .fab[hidden] { display: none; }
 
-  /* 떠 있는 버튼이 마지막 줄을 덮지 않게 지면 아래를 넉넉히 */
-  body.has-fab .wrap { padding-bottom: 96px; }
+  /* 떠 있는 버튼이 마지막 줄을 덮지 않게 지면 아래를 넉넉히.
+     버튼이 둘로 늘어 한 칸(56px) 더 물러난다. */
+  body.has-fab .wrap { padding-bottom: 152px; }
 
   /* 한 칸짜리 팝업 */
   .drawer.fix .drawer-body { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+
+  /* ================================================================
+     데이터에 물어보기 — 수정요청 버튼 위에 한 칸 얹는다
+     가로로 나란히 두면 글자 길이에 따라 겹친다. 세로로 쌓는다.
+     ================================================================ */
+  .fab-ask { bottom: calc(max(16px, env(safe-area-inset-bottom)) + 56px); }
+
+  /* 작은 창이다. 서랍(1080px)을 그대로 입히면 폰에서 과하다. */
+  .drawer.ask {
+    width: min(520px, calc(100vw - 32px));
+    height: auto;
+    max-height: min(640px, calc(100vh - 56px));
+  }
+  .drawer.ask .drawer-body {
+    grid-template-columns: 1fr; grid-template-rows: auto;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+
+  .ask-form { display: flex; gap: 8px; align-items: stretch; }
+  .ask-form input {
+    flex: 1 1 auto; min-width: 0;
+    font: inherit; font-size: 15px;          /* 16px 미만이면 iOS 가 확대한다 → 15 는 아래에서 키운다 */
+    color: var(--navy); background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--r-control);
+    padding: 10px 12px;
+  }
+  .ask-form input::placeholder { color: var(--ink-muted); }
+  .ask-form .btn-primary { width: auto; flex: none; padding: 10px 16px; font-size: 14px; }
+
+  /* 예시 — 눌러서 그대로 물어본다 */
+  .ask-ex { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 0; }
+  .ask-ex button {
+    font: inherit; font-size: 12px; font-weight: 700;
+    color: var(--navy); background: var(--blush);
+    border: 0; border-radius: var(--r-badge);
+    padding: 4px 9px; cursor: pointer;
+  }
+  .ask-ex button:hover { background: #F6C9CE; }
+
+  /* 답 */
+  .ask-out { margin-top: 14px; }
+  .ask-out[hidden] { display: none; }
+  .ask-title {
+    font-size: 12px; color: var(--ink-muted); margin: 0 0 2px;
+    overflow-wrap: anywhere;
+  }
+  .ask-line { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; margin-top: 4px; }
+  .ask-line .lab { font-size: 12px; color: var(--ink); }
+  .ask-num {
+    font-size: 27px; font-weight: 800; color: var(--navy); line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+  }
+  .ask-num .unit { font-size: 14px; font-weight: 700; margin-left: 3px; }
+
+  /* 출처 — 숫자와 늘 붙어 다닌다 */
+  .ask-src {
+    margin: 12px 0 0; padding-top: 9px; border-top: 1px solid var(--line);
+    font-size: 11px; line-height: 1.6; color: var(--ink-muted);
+    overflow-wrap: anywhere;
+  }
+  .ask-src code {
+    font-size: 11px; color: var(--navy); background: var(--ivory);
+    border-radius: var(--r-badge); padding: 1px 5px;
+  }
+  .ask-note { margin: 6px 0 0; font-size: 11px; color: var(--ink-muted); line-height: 1.6; }
+
+  /* 없음·못 알아들음 — 오류가 아니라 답이다. 붉게 칠하지 않는다. */
+  .ask-none {
+    border: 1px solid var(--border); border-radius: var(--r-control);
+    padding: 11px 13px; background: var(--ivory);
+  }
+  .ask-none b { display: block; font-size: 14px; color: var(--navy); margin-bottom: 3px; }
+  .ask-none p { margin: 0; font-size: 12px; color: var(--ink); line-height: 1.6; }
+  .ask-none .hint { color: var(--ink-muted); margin-top: 5px; }
+  .ask-bad { border-color: var(--down); }
+  .ask-bad b { color: var(--down); }
+
+  @media (max-width: 480px) {
+    .ask-form input { font-size: 16px; }   /* 폰에서 초점이 갈 때 확대되지 않게 */
+    .drawer.ask { max-height: calc(100dvh - 24px - env(safe-area-inset-bottom)); }
+  }
 
   /* 새 요청 폼이 위, 올린 목록이 아래 (서랍은 반대라 여기서만 뒤집는다) */
   .drawer.fix .drawer-form {
@@ -1416,6 +1498,13 @@
   <span>수정요청</span>
 </button>
 
+<!-- 데이터에 물어보기 — 읽기만 한다. 조회는 서버(Edge)가 하고,
+     화면은 물어보고 받아 적기만 한다. -->
+<button type="button" class="btn fab fab-ask" id="ask-btn" hidden aria-haspopup="dialog">
+  <span aria-hidden="true">💬</span>
+  <span>물어보기</span>
+</button>
+
 <script>
 /* ------------------------------------------------------------------ *
  *  접속 정보
@@ -1624,6 +1713,7 @@ function clearData() {
   Drawer.reset();                         // 서랍도 닫고 배지·명단을 버린다
   Bell.reset();                           // 알림함도 비운다
   Fix.reset();                            // 수정요청 버튼도 감춘다
+  Ask.reset();                            // 물어보기 버튼도 함께 접는다
   URL_OPENED = false;                     // 다시 로그인하면 주소를 한 번 더 본다
 
   el('adminOnly').hidden = true;          // 로그아웃하면 관리자 영역도 닫는다
@@ -1676,6 +1766,7 @@ function enterApp(user) {
   Drawer.setUser(user);        // 서랍 배지는 로그인한 뒤에만 센다
   Bell.setUser(user);          // 알림함도 로그인한 뒤에만
   Fix.setUser(user);           // 수정요청 버튼은 로그인한 뒤에만 뜬다
+  Ask.setUser(user);           // 물어보기도 마찬가지 — 조회에 본인 JWT 가 필요하다
 
   showLoading();
   loadData();
@@ -3108,6 +3199,7 @@ var Bell = (function () {
     el('bell-panel').hidden = false;
     el('bell-btn').setAttribute('aria-expanded', 'true');
     Fix.setHidden(true);          // 폰에서는 알림이 화면 아래에 붙어 겹친다
+    Ask.setHidden(true);
     paint();
     load();
   }
@@ -3116,6 +3208,7 @@ var Bell = (function () {
     el('bell-panel').hidden = true;
     el('bell-btn').setAttribute('aria-expanded', 'false');
     Fix.setHidden(false);
+    Ask.setHidden(false);
   }
 
   function loadMuted() {
@@ -3657,6 +3750,245 @@ var Fix = (function () {
     /* 알림함이 열리면 겹치므로 비켜 준다 */
     setHidden: function (on) {
       var btn = el('fix-btn');
+      if (btn && me) btn.hidden = !!on;
+    }
+  };
+})();
+
+/* ------------------------------------------------------------------ *
+ *  데이터에 물어보기 — 한 줄 물으면 숫자 하나로 답한다
+ *
+ *    이 화면은 DB 에 직접 묻지 않는다. 서버(Edge 의 elaina-ask)에게
+ *    말을 넘기고 받아 적기만 한다. 그래서 여기에는 표 이름도, 조건을
+ *    만드는 규칙도, 비밀값도 없다 — 화면을 고쳐도 볼 수 있는 범위가
+ *    넓어지지 않는다.
+ *
+ *    서버는 직원의 JWT 로 붙어 조회하므로 권한 판정은 Postgres 의
+ *    RLS 가 한다. 8일차 화면에서 못 보는 것은 여기서도 안 나온다.
+ *
+ *    숫자 옆에는 늘 어느 표에서 왔는지가 붙는다. 못 찾으면 '데이터
+ *    없음' 이라고 적는다 — 화면이 값을 만들어 내는 자리는 없다.
+ * ------------------------------------------------------------------ */
+var Ask = (function () {
+  'use strict';
+
+  var EXAMPLES = ['7월 JH 송금액', '지난달 미통관', '8월 성창 건수'];
+
+  var dlg = null, ui = {}, me = null, busy = false;
+
+  function h(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function clear(node) { while (node && node.firstChild) node.removeChild(node.firstChild); }
+
+  /* 원·건은 소수점이 없고, 달러·위안은 있다 */
+  function money(v, unit) {
+    if (unit === '원' || unit === '건') return nf0.format(Math.round(v));
+    return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 }).format(v);
+  }
+
+  /* ---- 팝업은 한 번만 만든다 ------------------------------------ */
+  function build() {
+    if (dlg) return;
+    dlg = h('dialog', 'drawer ask');
+    dlg.id = 'ask-dialog';
+    dlg.setAttribute('aria-labelledby', 'ask-title');
+
+    var head = h('div', 'drawer-head');
+    var hbox = h('div');
+    var t = h('h2', null, '💬 데이터에 물어보기');
+    t.id = 'ask-title';
+    var sub = h('p', 'drawer-sub',
+      '해외송금 자료만 읽습니다. 조회만 하고 아무것도 바꾸지 않습니다.');
+    hbox.appendChild(t); hbox.appendChild(sub);
+    var x = h('button', 'btn btn-ghost drawer-close', '닫기');
+    x.type = 'button';
+    x.addEventListener('click', function () { dlg.close(); });
+    head.appendChild(hbox); head.appendChild(x);
+
+    var body = h('div', 'drawer-body');
+    var pane = h('section', 'drawer-pane');
+    pane.setAttribute('aria-label', '데이터에 물어보기');
+
+    ui.form = h('form', 'ask-form');
+    ui.q = document.createElement('input');
+    ui.q.type = 'text';
+    ui.q.placeholder = '예: 7월 JH 송금액';
+    ui.q.setAttribute('aria-label', '물어볼 말');
+    ui.q.setAttribute('enterkeyhint', 'search');
+    ui.q.maxLength = 200;
+    ui.send = h('button', 'btn btn-primary', '물어보기');
+    ui.send.type = 'submit';
+    ui.form.appendChild(ui.q); ui.form.appendChild(ui.send);
+
+    ui.ex = h('div', 'ask-ex');
+    EXAMPLES.forEach(function (s) {
+      var b = h('button', null, s);
+      b.type = 'button';
+      b.addEventListener('click', function () { ui.q.value = s; run(); });
+      ui.ex.appendChild(b);
+    });
+
+    ui.out = h('div', 'ask-out');
+    ui.out.hidden = true;
+    ui.out.setAttribute('role', 'status');
+    ui.out.setAttribute('aria-live', 'polite');
+
+    pane.appendChild(ui.form);
+    pane.appendChild(ui.ex);
+    pane.appendChild(ui.out);
+    body.appendChild(pane);
+    dlg.appendChild(head); dlg.appendChild(body);
+    document.body.appendChild(dlg);
+
+    ui.form.addEventListener('submit', function (e) { e.preventDefault(); run(); });
+  }
+
+  /* ---- 그리기 --------------------------------------------------- */
+  function box(cls, title, detail, hint) {
+    var d = h('div', 'ask-none' + (cls ? ' ' + cls : ''));
+    d.appendChild(h('b', null, title));
+    if (detail) d.appendChild(h('p', null, detail));
+    if (hint) d.appendChild(h('p', 'hint', hint));
+    return d;
+  }
+
+  /* 출처 — 어느 표에서 몇 줄을 어떤 조건으로 읽었는지. 늘 붙는다. */
+  function source(src) {
+    var p = h('p', 'ask-src');
+    p.appendChild(document.createTextNode('출처 '));
+    p.appendChild(h('code', null, src.table));
+    p.appendChild(document.createTextNode(' · ' + (src.rows || 0) + '줄'));
+    if (src.filters && src.filters.length) {
+      p.appendChild(document.createElement('br'));
+      p.appendChild(document.createTextNode('조건 ' + src.filters.join(' · ')));
+    }
+    return p;
+  }
+
+  function known(k) {
+    if (!k) return null;
+    var p = h('p', 'ask-note');
+    if (k.months && k.months.length) {
+      p.appendChild(document.createTextNode('있는 달: ' + k.months.join(', ')));
+      p.appendChild(document.createElement('br'));
+    }
+    if (k.vendors && k.vendors.length) {
+      p.appendChild(document.createTextNode('거래처: ' + k.vendors.join(', ')));
+    }
+    return p.firstChild ? p : null;
+  }
+
+  function paint(res) {
+    clear(ui.out);
+    ui.out.hidden = false;
+
+    if (res.ok) {
+      ui.out.appendChild(h('p', 'ask-title', res.title));
+      res.lines.forEach(function (l) {
+        var row = h('div', 'ask-line');
+        if (res.lines.length > 1) row.appendChild(h('span', 'lab', l.label));
+        var n = h('span', 'ask-num');
+        n.appendChild(document.createTextNode(money(l.value, l.unit)));
+        if (l.unit) n.appendChild(h('span', 'unit', l.unit));
+        row.appendChild(n);
+        ui.out.appendChild(row);
+      });
+      (res.notes || []).forEach(function (s) {
+        ui.out.appendChild(h('p', 'ask-note', s));
+      });
+      ui.out.appendChild(source(res.source));
+      return;
+    }
+
+    /* 없음·못 알아들음 — 오류가 아니다. 숫자를 지어내지 않았다는 뜻이다. */
+    ui.out.appendChild(box(
+      res.kind === 'denied' ? 'ask-bad' : '',
+      res.message,
+      res.detail || '',
+      res.hint || ''
+    ));
+    var k = known(res.known);
+    if (k) ui.out.appendChild(k);
+    if (res.source) ui.out.appendChild(source(res.source));
+  }
+
+  /* ---- 물어보기 ------------------------------------------------- */
+  function run() {
+    var q = (ui.q.value || '').trim();
+    if (!q || busy || !CLIENT) return;
+
+    busy = true;
+    ui.send.disabled = true;
+    ui.send.textContent = '읽는 중…';
+    clear(ui.out);
+    ui.out.hidden = false;
+    ui.out.appendChild(h('p', 'ask-note', '읽는 중…'));
+
+    Promise.resolve(CLIENT.functions.invoke('elaina-ask', { body: { q: q } }))
+      .then(function (res) {
+        /* 함수가 4xx·5xx 로 답하면 본문이 error 안에 들어온다 */
+        if (res.error) {
+          var ctx = res.error.context;
+          if (ctx && typeof ctx.json === 'function') {
+            return ctx.json().then(function (j) {
+              paint({ ok: false, kind: 'bad', message: (j && j.error) || '답을 받지 못했습니다.' });
+            });
+          }
+          paint({ ok: false, kind: 'bad',
+            message: '답을 받지 못했습니다.',
+            detail: res.error.message || '' });
+          return;
+        }
+        paint(res.data || { ok: false, kind: 'bad', message: '답이 비어 있습니다.' });
+      })
+      .catch(function (err) {
+        paint({ ok: false, kind: 'bad',
+          message: '답을 받지 못했습니다.',
+          detail: (err && err.message) ? err.message : String(err) });
+      })
+      .then(function () {
+        busy = false;
+        ui.send.disabled = false;
+        ui.send.textContent = '물어보기';
+      });
+  }
+
+  function open() {
+    if (!me) return;
+    build();
+    if (!dlg.open) dlg.showModal();
+    /* 폰에서 키보드가 바로 올라오면 답 자리가 가려진다. 답이 이미 있으면
+       그대로 두고, 처음 열 때만 입력칸에 초점을 준다. */
+    if (ui.out.hidden) { try { ui.q.focus(); } catch (e) {} }
+  }
+
+  return {
+    wire: function () {
+      var btn = el('ask-btn');
+      if (btn) btn.addEventListener('click', function () { open(); });
+    },
+    setUser: function (user) {
+      me = user ? { id: user.id } : null;
+      el('ask-btn').hidden = !me;
+    },
+    reset: function () {
+      me = null;
+      if (dlg) {
+        if (dlg.open) dlg.close();
+        ui.q.value = '';
+        clear(ui.out);
+        ui.out.hidden = true;
+      }
+      el('ask-btn').hidden = true;
+    },
+    /* 알림함이 열리면 겹치므로 비켜 준다 */
+    setHidden: function (on) {
+      var btn = el('ask-btn');
       if (btn && me) btn.hidden = !!on;
     }
   };
@@ -4518,6 +4850,7 @@ function boot() {
       wireDrawer();
       Bell.wire();
       Fix.wire();
+      Ask.wire();
 
       CLIENT.auth.onAuthStateChange(function (event, session) {
         if (event === 'SIGNED_OUT') { enterLogin(); return; }
