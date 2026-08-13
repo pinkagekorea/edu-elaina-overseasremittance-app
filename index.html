@@ -56,11 +56,11 @@
     --up:        #1d7a5c;   /* 좋음 (초록) */
     --down:      #b23a48;   /* 나쁨·오류 (빨강) */
 
-    /* 증감 — 디자인 시스템이 정한 두 색만 쓴다 (브랜드색 금지).
-       증가는 빨강, 감소는 초록. 별도 토큰을 두는 이유는 위의 --up/--down 이
-       앱 전체에서 "좋음/나쁨" 뜻으로 쓰이고 있어 뜻이 섞이기 때문이다. */
+    /* 증감 — 증가는 빨강, 감소는 파랑. 별도 토큰을 두는 이유는 위의
+       --up/--down 이 앱 전체에서 "좋음/나쁨" 뜻으로 쓰이고 있어 뜻이
+       섞이기 때문이다. 증감은 좋고 나쁨이 아니라 오르내림만 말한다. */
     --delta-up:   #b23a48;  /* 증가 = 빨강 (white 5.85 · ivory 5.70) */
-    --delta-down: #1d7a5c;  /* 감소 = 초록 (white 5.26 · ivory 5.13) */
+    --delta-down: #1d4ed8;  /* 감소 = 파랑 (white 6.65 · ivory 6.48) */
 
     /* 반경 4단계 */
     --r-badge:   6px;
@@ -244,6 +244,17 @@
   .report-table tbody th {
     color: var(--ink); font-weight: 400;
     border-bottom: 1px solid var(--line);
+  }
+
+  /* 표가 둘이다 — 달끼리 견준 표, 날끼리 견준 표. 제목으로 갈라 놓는다. */
+  .report-group { margin-top: 18px; }
+  .report-group:first-child { margin-top: 0; }
+  .report-group h3 {
+    font-size: 13px; font-weight: 700; color: var(--navy); margin: 0 0 6px;
+  }
+  .report-group .report-sub {
+    font-size: 11px; color: var(--ink-muted); margin: 0 0 8px; line-height: 1.6;
+    overflow-wrap: anywhere;
   }
 
   /* 증감 — 색과 화살표 둘 다로 말한다 (색만으로는 전해지지 않으므로) */
@@ -1357,7 +1368,7 @@
           <option>불러오는 중…</option>
         </select>
       </div>
-      <p class="section-sub">매일 아침 9시 자동 생성 · 달력 기준 이번 달과 전달</p>
+      <p class="section-sub">매일 아침 9시 자동 생성 · 달끼리 한 표, 날끼리 한 표</p>
       <div id="report-body"></div>
     </section>
   </main>
@@ -3752,7 +3763,16 @@ var Report = (function () {
     return td;
   }
 
-  function table(row) {
+  /* 견줄 수 없는 자리 — 빈칸으로 두지 않고 왜 없는지는 표 위에 적는다 */
+  function flatCell() {
+    var td = document.createElement('td');
+    td.className = 'delta flat';
+    td.textContent = '–';
+    return td;
+  }
+
+  /* 표 한 장을 만든다. cells(line) 이 그 줄의 「당·전·증감」 칸 셋을 준다. */
+  function table(heads, cells) {
     var wrap = document.createElement('div');
     wrap.className = 'report-scroll';
 
@@ -3761,10 +3781,7 @@ var Report = (function () {
 
     var thead = document.createElement('thead');
     var htr = document.createElement('tr');
-    ['항목',
-     '이번 달 (' + row.cur_month + ')',
-     '전달 (' + row.prev_month + ')',
-     '증감'].forEach(function (text) {
+    heads.forEach(function (text) {
       var th = document.createElement('th');
       th.scope = 'col';
       th.textContent = text;
@@ -3775,23 +3792,115 @@ var Report = (function () {
 
     var tb = document.createElement('tbody');
     LINES.forEach(function (line) {
-      var cur = num(row[line.cur]), prev = num(row[line.prev]);
-
       var tr = document.createElement('tr');
       var th = document.createElement('th');
       th.scope = 'row';
       th.textContent = line.label;
       tr.appendChild(th);
 
-      tr.appendChild(moneyCell(cur, 0));     // 월별 상세 내역과 같은 규칙 (0 은 –)
-      tr.appendChild(moneyCell(prev, 0));
-      tr.appendChild(deltaCell(cur, prev));
+      cells(line).forEach(function (td) { tr.appendChild(td); });
       tb.appendChild(tr);
     });
     t.appendChild(tb);
 
     wrap.appendChild(t);
     return wrap;
+  }
+
+  /* 제목과 한 줄 설명을 얹은 묶음 — 표가 둘이라 어느 표인지 말해야 한다 */
+  function group(title, sub) {
+    var g = document.createElement('div');
+    g.className = 'report-group';
+
+    var h = document.createElement('h3');
+    h.textContent = title;
+    g.appendChild(h);
+
+    if (sub) {
+      var p = document.createElement('p');
+      p.className = 'report-sub';
+      p.textContent = sub;
+      g.appendChild(p);
+    }
+    return g;
+  }
+
+  /* ── 달끼리 — 이번 달 누계와 전달 누계 ─────────────────────────── */
+  function monthGroup(row) {
+    var g = group('이번 달 · 전달', '달력 기준 누계끼리 · 이번 달은 아직 쌓이는 중입니다');
+    g.appendChild(table(
+      ['항목',
+       '이번 달 (' + row.cur_month + ')',
+       '전달 (' + row.prev_month + ')',
+       '증감'],
+      function (line) {
+        var cur = num(row[line.cur]), prev = num(row[line.prev]);
+        return [
+          moneyCell(cur, 0),        // 월별 상세 내역과 같은 규칙 (0 은 –)
+          moneyCell(prev, 0),
+          deltaCell(cur, prev)
+        ];
+      }));
+    return g;
+  }
+
+  /* ── 날끼리 — 고른 날의 스냅샷과 그 앞 스냅샷 ───────────────────
+     같은 자리(이번 달 누계)를 하루 사이로 견주는 것이라, 증감은
+     「그 하루 동안 늘어난 만큼」 이 된다.
+
+     달이 바뀌면 누계가 0 부터 다시 시작한다. 그때 빼면 한 달치가
+     통째로 줄어든 것처럼 보이므로, 빼지 않고 그 사실을 적는다. */
+  function dayGroup(row, prev) {
+    if (!prev) {
+      return group('당일 · 전날',
+        '견줄 앞 리포트가 없습니다 — 이 날짜가 남아 있는 가장 오래된 리포트입니다.');
+    }
+    if (prev.status === 'error') {
+      return group('당일 · 전날',
+        prev.report_date + ' 리포트가 생성에 실패해 견줄 수 없습니다.');
+    }
+
+    var gap     = (new Date(row.report_date  + 'T00:00:00Z') -
+                   new Date(prev.report_date + 'T00:00:00Z'));
+    var oneDay  = gap === 86400000;
+    var sameMon = row.cur_month === prev.cur_month;
+
+    var yesterday = new Date(new Date(row.report_date + 'T00:00:00Z') - 86400000)
+                      .toISOString().slice(0, 10);
+
+    var sub = oneDay
+      ? '하루 사이에 움직인 만큼 (' + prev.report_date + ' → ' + row.report_date + ')'
+      : yesterday + ' 리포트가 없어 ' + prev.report_date + ' 자와 견줍니다';
+
+    if (!sameMon) {
+      sub = prev.report_date + ' 은 ' + prev.cur_month + ' 누계, ' +
+            row.report_date + ' 은 ' + row.cur_month + ' 누계입니다 — ' +
+            '달이 바뀌어 누계가 새로 시작하므로 증감을 내지 않습니다.';
+    }
+
+    var g = group('당일 · 전날', sub);
+    g.appendChild(table(
+      ['항목',
+       '당일 (' + row.report_date + ')',
+       (oneDay ? '전날 (' : '직전 (') + prev.report_date + ')',
+       '증감'],
+      function (line) {
+        var a = num(row[line.cur]), b = num(prev[line.cur]);
+        return [
+          moneyCell(a, 0),
+          moneyCell(b, 0),
+          sameMon ? deltaCell(a, b) : flatCell()
+        ];
+      }));
+    return g;
+  }
+
+  /* 고른 날 바로 앞의 스냅샷 (snaps 는 최신이 먼저다) */
+  function before(row) {
+    for (var i = 0; i < snaps.length; i++) {
+      if (snaps[i] === row) return snaps[i + 1] || null;
+    }
+    return null;
   }
 
   /* ── 그리기 ───────────────────────────────────────────────────── */
@@ -3823,7 +3932,8 @@ var Report = (function () {
       return;                       /* 숫자를 믿을 수 없으므로 표를 그리지 않는다 */
     }
 
-    body.appendChild(table(row));
+    body.appendChild(monthGroup(row));
+    body.appendChild(dayGroup(row, before(row)));
   }
 
   function fillPicker() {
